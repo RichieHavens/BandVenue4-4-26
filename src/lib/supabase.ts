@@ -5,6 +5,10 @@ const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
 
 const isConfigured = supabaseUrl && supabaseUrl !== 'https://your-project-id.supabase.co';
 
+console.log('Supabase URL loaded:', !!supabaseUrl);
+console.log('Supabase Anon Key loaded:', !!supabaseAnonKey);
+console.log('Supabase isConfigured:', !!isConfigured);
+
 if (!isConfigured) {
   console.warn('Supabase credentials missing or using default placeholder. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.');
 }

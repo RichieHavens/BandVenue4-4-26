@@ -1,15 +1,17 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
-import { Profile } from './types';
+import { Profile, UserRole } from './types';
 
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
+  activeRole: UserRole | null;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   setProfile: (profile: Profile | null) => void;
+  setActiveRole: (role: UserRole) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,7 +19,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [activeRole, setActiveRoleState] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const setActiveRole = (role: UserRole) => {
+    setActiveRoleState(role);
+    // Optionally persist this to local storage for the session
+    localStorage.setItem('active_role', role);
+  };
 
   useEffect(() => {
     // Check active sessions and subscribe to auth changes
@@ -92,14 +101,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn('Error fetching person data fallback:', personError);
       }
 
-      console.log('Profile fetch results:', { 
-        hasProfile: !!profileData, 
-        hasPerson: !!personData,
-        personEmail: personData?.email,
-        userEmail,
-        personError: personError ? personError.message : null
-      });
-
       // If we found a person record but it's not linked to this user_id yet, link it
       if (personData && !personData.user_id && userId) {
         await supabase.from('people').update({ user_id: userId }).eq('id', personData.id);
@@ -107,7 +108,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (profileError) {
         if (profileError.code === 'PGRST116') {
-          console.log('No profile found for user:', userId, 'Creating one...');
           
           // Use data from people table if available to seed the new profile
           const initialData = {
@@ -129,7 +129,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error('Error creating profile:', insertError);
             setProfile(null);
           } else {
-            console.log('Profile created successfully:', newData);
             setProfile(newData);
           }
         } else {
@@ -182,11 +181,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             first_name: mergedProfile.first_name,
             last_name: mergedProfile.last_name,
             phone: mergedProfile.phone,
-            roles: mergedProfile.roles
+            roles: mergedProfile.roles,
+            default_role: mergedProfile.default_role
           }).eq('id', userId);
         }
         
         setProfile(mergedProfile);
+        
+        // Set active role
+        const savedRole = localStorage.getItem('active_role') as UserRole;
+        if (savedRole && mergedProfile.roles.includes(savedRole)) {
+          setActiveRoleState(savedRole);
+        } else if (mergedProfile.default_role && mergedProfile.roles.includes(mergedProfile.default_role)) {
+          setActiveRoleState(mergedProfile.default_role);
+        } else if (mergedProfile.roles.length > 0) {
+          setActiveRoleState(mergedProfile.roles[0]);
+        }
+
+        console.log('Profile successfully set in state:', mergedProfile);
       }
     } catch (error) {
       console.error('Error in fetchProfile:', error);
@@ -208,7 +220,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut, refreshProfile, setProfile }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      profile, 
+      activeRole, 
+      loading, 
+      signOut, 
+      refreshProfile, 
+      setProfile,
+      setActiveRole
+    }}>
       {children}
     </AuthContext.Provider>
   );

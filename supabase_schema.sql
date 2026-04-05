@@ -180,6 +180,7 @@ CREATE TABLE venues (
   tech_specs TEXT,
   logo_url TEXT,
   hero_url TEXT,
+  bag_policy TEXT,
   linkedin_url TEXT,
   pinterest_url TEXT,
   youtube_url TEXT,
@@ -187,6 +188,7 @@ CREATE TABLE venues (
   apple_music_url TEXT,
   spotify_url TEXT,
   facebook_url TEXT,
+  twitter_url TEXT,
   images TEXT[] DEFAULT '{}', -- URLs to images
   is_seed BOOLEAN DEFAULT FALSE, -- Forensic seed data
   person_id UUID REFERENCES people(id),
@@ -219,6 +221,7 @@ CREATE TABLE bands (
   apple_music_url TEXT,
   spotify_url TEXT,
   facebook_url TEXT,
+  twitter_url TEXT,
   images TEXT[] DEFAULT '{}',
   video_links TEXT[] DEFAULT '{}',
   is_seed BOOLEAN DEFAULT FALSE, -- Forensic seed data
@@ -256,6 +259,7 @@ CREATE TABLE events (
   is_public BOOLEAN DEFAULT FALSE,
   is_published BOOLEAN DEFAULT FALSE,
   hero_url TEXT,
+  bag_policy TEXT,
   is_seed BOOLEAN DEFAULT FALSE, -- Forensic seed data
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE,

@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { Music, Mail, Lock, Loader2, UserPlus, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import AboutModal from './AboutModal';
 
-export default function AuthUI() {
+export default function AuthUI({ onSuccess }: { onSuccess?: () => void }) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -48,6 +48,7 @@ export default function AuthUI() {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Auth attempt started");
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -79,9 +80,11 @@ export default function AuthUI() {
           setSuccess('Check your email for the confirmation link!');
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email: emailToAuth, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email: emailToAuth, password });
         if (error) {
           console.error("Login Error Details:", error);
+          console.error("Login Error Message:", error.message);
+          console.error("Login Error Status:", error.status);
           if (error.message.includes('Invalid login credentials')) {
             throw new Error('Invalid email or password. Please check your credentials and try again.');
           }
@@ -96,6 +99,7 @@ export default function AuthUI() {
         } else {
           localStorage.removeItem('rememberedEmail');
         }
+        if (onSuccess) onSuccess();
       }
     } catch (err: any) {
       setError(err.message);
@@ -165,13 +169,13 @@ export default function AuthUI() {
           <div className="flex bg-neutral-950/50 p-1.5 rounded-2xl mb-8 border border-neutral-800/50">
             <button
               onClick={() => { setIsSignUp(false); setError(null); setSuccess(null); }}
-              className={`flex-1 py-3 rounded-xl text-sm font-bold uppercase tracking-widest transition-all duration-300 ${!isSignUp ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${!isSignUp ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
             >
               Sign In
             </button>
             <button
               onClick={() => { setIsSignUp(true); setError(null); setSuccess(null); }}
-              className={`flex-1 py-3 rounded-xl text-sm font-bold uppercase tracking-widest transition-all duration-300 ${isSignUp ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${isSignUp ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
             >
               Sign Up
             </button>

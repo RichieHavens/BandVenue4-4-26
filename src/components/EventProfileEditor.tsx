@@ -9,7 +9,8 @@ import ImageUpload from './ImageUpload';
 import StockImagePicker from './StockImagePicker';
 
 export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSuccess }: { eventId: string, onDirtyChange?: (dirty: boolean) => void, onSaveSuccess?: () => void }) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const isAdmin = profile?.roles.includes('admin');
   const [event, setEvent] = useState<Partial<Event> | null>(null);
   const [initialEvent, setInitialEvent] = useState<Partial<Event> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,10 +39,15 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
   }, [eventDate, startTime]);
 
   useEffect(() => {
-    if (event && initialEvent) {
-      const currentStartTime = new Date(`${eventDate}T${startTime}`).toISOString();
-      const isDirty = JSON.stringify({ ...event, start_time: currentStartTime }) !== JSON.stringify(initialEvent);
-      onDirtyChange?.(isDirty);
+    if (event && initialEvent && eventDate && startTime) {
+      const time = startTime.length === 5 ? `${startTime}:00` : startTime;
+      const dateObj = new Date(`${eventDate}T${time}`);
+      
+      if (!isNaN(dateObj.getTime())) {
+        const currentStartTime = dateObj.toISOString();
+        const isDirty = JSON.stringify({ ...event, start_time: currentStartTime }) !== JSON.stringify(initialEvent);
+        onDirtyChange?.(isDirty);
+      }
     }
   }, [event, initialEvent, eventDate, startTime, onDirtyChange]);
 
@@ -76,8 +82,8 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
         const [year, month, day] = dateStr.split('-').map(Number);
         const startTimeObj = new Date(year, month - 1, day);
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        setIsPast(startTimeObj < today);
+        const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        setIsPast(startTimeObj < todayDateOnly);
       } else {
         setIsPast(false);
       }
@@ -121,7 +127,11 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
     setMessage(null);
 
     try {
-      const currentStartTime = new Date(`${eventDate}T${startTime}`).toISOString();
+      if (!eventDate) {
+        throw new Error('Event date is required.');
+      }
+      const time = startTime || '00:00';
+      const currentStartTime = new Date(`${eventDate}T${time}:00`).toISOString();
       const eventToUpdate: any = {
         title: event.title,
         description: event.description,
@@ -189,7 +199,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
       <form onSubmit={handleSave} className="max-w-4xl mx-auto space-y-8 bg-neutral-900 p-8 rounded-3xl border border-neutral-800">
         <div className="flex items-center justify-between">
           <h2 className="text-3xl font-bold">Event Profile</h2>
-          {isPast && <span className="text-red-500 font-bold">Past event - not editable</span>}
+          {isPast && !isAdmin && <span className="text-red-500 font-bold">Past event - not editable</span>}
           <div className="flex items-center gap-4">
             <button
               type="button"
@@ -199,7 +209,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
               <Eye size={20} />
               <span className="hidden sm:inline">Preview</span>
             </button>
-            {!isPast && (
+            {(!isPast || isAdmin) && (
               <button
                 type="submit"
                 disabled={saving || !!dateError}
@@ -240,7 +250,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                 {event?.hero_url ? (
                   <>
                     <img src={event.hero_url} alt="Event" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    {!isPast && (
+                    {(!isPast || isAdmin) && (
                       <button
                         type="button"
                         onClick={() => setEvent({ ...event, hero_url: '' })}
@@ -257,7 +267,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                   </div>
                 )}
               </div>
-              {!isPast && (
+              {(!isPast || isAdmin) && (
                 <div className="flex flex-col gap-2 shrink-0">
                   <ImageUpload 
                     type="hero"
@@ -297,7 +307,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
             <input
               type="text"
               required
-              disabled={isPast}
+              disabled={isPast && !isAdmin}
               value={event?.title || ''}
               onChange={(e) => setEvent({ ...event, title: e.target.value })}
               className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
@@ -309,7 +319,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
             <input
               type="date"
               required
-              disabled={isPast}
+              disabled={isPast && !isAdmin}
               value={eventDate}
               onChange={(e) => setEventDate(e.target.value)}
               className={`w-full bg-neutral-800 border rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all ${
@@ -326,9 +336,31 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
             <input
               type="time"
               required
-              disabled={isPast}
+              disabled={isPast && !isAdmin}
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-neutral-400">Ticket Price Low</label>
+            <input
+              type="number"
+              disabled={isPast && !isAdmin}
+              value={event?.ticket_price_low || ''}
+              onChange={(e) => setEvent({ ...event, ticket_price_low: parseFloat(e.target.value) })}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-neutral-400">Ticket Price High</label>
+            <input
+              type="number"
+              disabled={isPast && !isAdmin}
+              value={event?.ticket_price_high || ''}
+              onChange={(e) => setEvent({ ...event, ticket_price_high: parseFloat(e.target.value) })}
               className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
@@ -337,9 +369,19 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
             <label className="text-sm font-medium text-neutral-400">Description</label>
             <textarea
               rows={4}
-              disabled={isPast}
+              disabled={isPast && !isAdmin}
               value={event?.description || ''}
               onChange={(e) => setEvent({ ...event, description: e.target.value })}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all resize-none"
+            />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-sm font-medium text-neutral-400">Bag Policy (Override)</label>
+            <textarea
+              rows={4}
+              disabled={isPast && !isAdmin}
+              value={event?.bag_policy || ''}
+              onChange={(e) => setEvent({ ...event, bag_policy: e.target.value })}
               className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all resize-none"
             />
           </div>
@@ -350,7 +392,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
               <label className="flex items-center gap-3 p-3 bg-neutral-800 rounded-xl border border-neutral-700 cursor-pointer hover:border-neutral-600 transition-all">
                 <input
                   type="checkbox"
-                  disabled={isPast}
+                  disabled={isPast && !isAdmin}
                   checked={event?.is_public || false}
                   onChange={(e) => setEvent({ ...event, is_public: e.target.checked })}
                   className="w-5 h-5 rounded border-neutral-600 text-red-600 focus:ring-red-600 bg-neutral-900"
@@ -364,7 +406,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
               <label className="flex items-center gap-3 p-3 bg-neutral-800 rounded-xl border border-neutral-700 cursor-pointer hover:border-neutral-600 transition-all">
                 <input
                   type="checkbox"
-                  disabled={isPast}
+                  disabled={isPast && !isAdmin}
                   checked={event?.is_published || false}
                   onChange={(e) => setEvent({ ...event, is_published: e.target.checked })}
                   className="w-5 h-5 rounded border-neutral-600 text-red-600 focus:ring-red-600 bg-neutral-900"
@@ -378,7 +420,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
               <label className="flex items-center gap-3 p-3 bg-neutral-800 rounded-xl border border-neutral-700 cursor-pointer hover:border-neutral-600 transition-all">
                 <input
                   type="checkbox"
-                  disabled={isPast}
+                  disabled={isPast && !isAdmin}
                   checked={event?.venue_confirmed || false}
                   onChange={(e) => setEvent({ ...event, venue_confirmed: e.target.checked })}
                   className="w-5 h-5 rounded border-neutral-600 text-red-600 focus:ring-red-600 bg-neutral-900"
@@ -392,7 +434,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
               <label className="flex items-center gap-3 p-3 bg-neutral-800 rounded-xl border border-neutral-700 cursor-pointer hover:border-neutral-600 transition-all">
                 <input
                   type="checkbox"
-                  disabled={isPast}
+                  disabled={isPast && !isAdmin}
                   checked={event?.band_confirmed || false}
                   onChange={(e) => setEvent({ ...event, band_confirmed: e.target.checked })}
                   className="w-5 h-5 rounded border-neutral-600 text-red-600 focus:ring-red-600 bg-neutral-900"

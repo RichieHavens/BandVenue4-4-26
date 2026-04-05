@@ -16,6 +16,9 @@ export function ScraperView() {
   const [url, setUrl] = useState('');
   const [pastedText, setPastedText] = useState('');
   const [inputType, setInputType] = useState<'url' | 'text'>('url');
+  const [scrapeVenues, setScrapeVenues] = useState(true);
+  const [scrapeBands, setScrapeBands] = useState(true);
+  const [scrapeEvents, setScrapeEvents] = useState(true);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -36,6 +39,42 @@ export function ScraperView() {
     data: any;
   } | null>(null);
   const [matchedRecord, setMatchedRecord] = useState<any>(null);
+  const [selectedVenueId, setSelectedVenueId] = useState<string>('');
+  const [selectedBandId, setSelectedBandId] = useState<string>('');
+  const [venues, setVenues] = useState<any[]>([]);
+  const [bands, setBands] = useState<any[]>([]);
+
+  const handleVenueChange = (venueId: string) => {
+    setSelectedVenueId(venueId);
+    if (venueId) {
+      setScrapeVenues(false);
+      setSelectedBandId(''); // Enforce mutual exclusivity
+      setScrapeBands(true);
+    } else {
+      setScrapeVenues(true);
+    }
+  };
+
+  const handleBandChange = (bandId: string) => {
+    setSelectedBandId(bandId);
+    if (bandId) {
+      setScrapeBands(false);
+      setSelectedVenueId(''); // Enforce mutual exclusivity
+      setScrapeVenues(true);
+    } else {
+      setScrapeBands(true);
+    }
+  };
+
+  useEffect(() => {
+    const fetchContext = async () => {
+      const { data: venues } = await supabase.from('venues').select('id, name').order('name');
+      const { data: bands } = await supabase.from('bands').select('id, name').order('name');
+      if (venues) setVenues(venues);
+      if (bands) setBands(bands);
+    };
+    fetchContext();
+  }, []);
 
   useEffect(() => {
     const fetchMatchedRecord = async () => {
@@ -142,23 +181,24 @@ export function ScraperView() {
             setStatus('AI is fetching and analyzing website content...');
             response = await ai.models.generateContent({
               model: "gemini-3-flash-preview",
-              contents: `Extract ALL venue, band, and event information from the following URL: ${url}. 
+              contents: `Extract ${scrapeVenues ? 'ALL venue, ' : ''}${scrapeBands ? 'ALL band, ' : ''}${scrapeEvents ? 'ALL event ' : ''}information from the following URL: ${url}. 
               
               CRITICAL INSTRUCTIONS: 
               1. Analyze the content at ${url} carefully.
-              2. Extract every upcoming show, performance, or event listed.
-              3. Identify the venue and all performing bands/artists.
-              4. If the page is a Facebook page, look for the 'Events' or 'About' section content if possible.
-              5. Populate the 'venues', 'bands', and 'events' arrays in the JSON response.`,
+              2. ${scrapeEvents ? 'Extract every upcoming show, performance, or event listed.' : 'Do not extract any events.'}
+              3. ${scrapeVenues ? 'Identify the venue.' : 'Do not extract venue information.'}
+              4. ${scrapeBands ? 'Identify all performing bands/artists.' : 'Do not extract band information.'}
+              5. If the page is a Facebook page, look for the 'Events' or 'About' section content if possible.
+              6. Populate the ${scrapeVenues ? "'venues', " : ''}${scrapeBands ? "'bands', " : ''}${scrapeEvents ? "'events' " : ''}arrays in the JSON response.`,
               config: {
-                systemInstruction: "You are a professional data extractor. Extract ALL venue, band, and event information from the provided URL. You MUST populate the venues and bands arrays if any exist in the text. Output ONLY valid JSON. Ensure all JSON brackets are closed. Limit genres to the top 2. If you hit a token limit, ensure the JSON is as complete as possible up to that point.",
+                systemInstruction: `You are a professional data extractor. Extract ${scrapeVenues ? 'ALL venue, ' : ''}${scrapeBands ? 'ALL band, ' : ''}${scrapeEvents ? 'ALL event ' : ''}information from the provided URL. You MUST populate the ${scrapeVenues ? 'venues, ' : ''}${scrapeBands ? 'bands, ' : ''}${scrapeEvents ? 'events ' : ''}arrays if any exist in the text. Output ONLY valid JSON. Ensure all JSON brackets are closed. Limit genres to the top 2. If you hit a token limit, ensure the JSON is as complete as possible up to that point.`,
                 responseMimeType: "application/json",
                 maxOutputTokens: 8192,
                 tools: [{ urlContext: {} }],
                 responseSchema: {
                   type: Type.OBJECT,
                   properties: {
-                    venues: {
+                    venues: scrapeVenues ? {
                       type: Type.ARRAY,
                       items: {
                         type: Type.OBJECT,
@@ -174,8 +214,8 @@ export function ScraperView() {
                         },
                         required: ["name"]
                       }
-                    },
-                    bands: {
+                    } : { type: Type.ARRAY, items: { type: Type.OBJECT }, description: "Empty array as venue scraping is disabled" },
+                    bands: scrapeBands ? {
                       type: Type.ARRAY,
                       items: {
                         type: Type.OBJECT,
@@ -185,13 +225,15 @@ export function ScraperView() {
                           website: { type: Type.STRING, description: "Official website URL." },
                           phone: { type: Type.STRING },
                           email: { type: Type.STRING },
+                          city: { type: Type.STRING, description: "City where the band is based" },
+                          state: { type: Type.STRING, description: "State where the band is based (2-letter code if US)" },
                           genres: { type: Type.ARRAY, items: { type: Type.STRING } },
                           images: { type: Type.ARRAY, items: { type: Type.STRING } }
                         },
                         required: ["name"]
                       }
-                    },
-                    events: {
+                    } : { type: Type.ARRAY, items: { type: Type.OBJECT }, description: "Empty array as band scraping is disabled" },
+                    events: scrapeEvents ? {
                       type: Type.ARRAY,
                       items: {
                         type: Type.OBJECT,
@@ -205,7 +247,7 @@ export function ScraperView() {
                         },
                         required: ["title"]
                       }
-                    },
+                    } : { type: Type.ARRAY, items: { type: Type.OBJECT }, description: "Empty array as event scraping is disabled" },
                     genres: {
                       type: Type.ARRAY,
                       items: { type: Type.STRING }
@@ -218,30 +260,30 @@ export function ScraperView() {
             setStatus('AI is analyzing pasted text...');
             response = await ai.models.generateContent({
               model: "gemini-3-flash-preview",
-              contents: `Extract venue, band, and event information from the following text: 
+              contents: `Extract ${scrapeVenues ? 'venue, ' : ''}${scrapeBands ? 'band, ' : ''}${scrapeEvents ? 'event ' : ''}information from the following text: 
               ---
               ${pastedText.substring(0, 30000)}
               ---
               
               CRITICAL INSTRUCTIONS: 
               1. The text provided is likely a calendar, schedule, or list of upcoming shows. Treat each block of text with a date/time as a separate event.
-              2. Extract ALL events, bands, and venues you can find. Do not artificially limit the results.
-              3. YOU MUST POPULATE THE 'venues' ARRAY. Every unique venue mentioned must have an entry in the 'venues' array.
-              4. YOU MUST POPULATE THE 'bands' ARRAY. Every unique band or artist mentioned must have an entry in the 'bands' array.
+              2. ${scrapeEvents ? 'Extract ALL events.' : 'Do not extract any events.'}
+              3. ${scrapeVenues ? 'Extract ALL venues.' : 'Do not extract any venues.'}
+              4. ${scrapeBands ? 'Extract ALL bands.' : 'Do not extract any bands.'}
               5. The event 'title' should be the name of the specific show, performance, or headlining band.
               6. Return a JSON object with:
-                 - venues: array of { name, address, description, phone, email, website, genres, images }
-                 - bands: array of { name, description, website, phone, email, genres, images }
-                 - events: array of { title, description, start_time, venue_name, band_names, genres }
+                 - venues: ${scrapeVenues ? 'array of { name, address, description, phone, email, website, genres, images }' : 'empty array'}
+                 - bands: ${scrapeBands ? 'array of { name, description, website, phone, email, genres, images }' : 'empty array'}
+                 - events: ${scrapeEvents ? 'array of { title, description, start_time, venue_name, band_names, genres }' : 'empty array'}
                  - genres: array of strings`,
               config: {
-                systemInstruction: "You are a professional data extractor. Extract ALL venue, band, and event information from the provided text. You MUST populate the venues and bands arrays if any exist in the text. Output ONLY valid JSON. Ensure all JSON brackets are closed. Limit genres to the top 2. If you hit a token limit, ensure the JSON is as complete as possible up to that point.",
+                systemInstruction: `You are a professional data extractor. Extract ${scrapeVenues ? 'venue, ' : ''}${scrapeBands ? 'band, ' : ''}${scrapeEvents ? 'event ' : ''}information from the provided text. You MUST populate the ${scrapeVenues ? 'venues, ' : ''}${scrapeBands ? 'bands, ' : ''}${scrapeEvents ? 'events ' : ''}arrays if any exist in the text. Output ONLY valid JSON. Ensure all JSON brackets are closed. Limit genres to the top 2. If you hit a token limit, ensure the JSON is as complete as possible up to that point.`,
                 responseMimeType: "application/json",
                 maxOutputTokens: 8192,
                 responseSchema: {
                   type: Type.OBJECT,
                   properties: {
-                    venues: {
+                    venues: scrapeVenues ? {
                       type: Type.ARRAY,
                       items: {
                         type: Type.OBJECT,
@@ -257,8 +299,8 @@ export function ScraperView() {
                         },
                         required: ["name"]
                       }
-                    },
-                    bands: {
+                    } : { type: Type.ARRAY, items: { type: Type.OBJECT }, description: "Empty array as venue scraping is disabled" },
+                    bands: scrapeBands ? {
                       type: Type.ARRAY,
                       items: {
                         type: Type.OBJECT,
@@ -273,8 +315,8 @@ export function ScraperView() {
                         },
                         required: ["name"]
                       }
-                    },
-                    events: {
+                    } : { type: Type.ARRAY, items: { type: Type.OBJECT }, description: "Empty array as band scraping is disabled" },
+                    events: scrapeEvents ? {
                       type: Type.ARRAY,
                       items: {
                         type: Type.OBJECT,
@@ -288,7 +330,7 @@ export function ScraperView() {
                         },
                         required: ["title"]
                       }
-                    },
+                    } : { type: Type.ARRAY, items: { type: Type.OBJECT }, description: "Empty array as event scraping is disabled" },
                     genres: {
                       type: Type.ARRAY,
                       items: { type: Type.STRING }
@@ -302,6 +344,11 @@ export function ScraperView() {
         } catch (aiErr: any) {
           console.error(`AI Generation Error (Attempt ${attempts}):`, aiErr);
           const errMessage = JSON.stringify(aiErr);
+          
+          if (errMessage.toLowerCase().includes('quota') || errMessage.includes('429')) {
+            throw new Error("Gemini API Quota Exceeded. Please wait a few minutes before trying again or try a smaller amount of text.");
+          }
+
           const isRetryable = errMessage.includes('500') || errMessage.includes('INTERNAL') || errMessage.includes('503') || errMessage.includes('UNAVAILABLE');
           
           if (attempts < maxAttempts && isRetryable) {
@@ -608,195 +655,206 @@ export function ScraperView() {
       }
 
       // 2. Process Venues (from explicit list and events)
-      const allVenueNames = new Set<string>();
-      results.venues.forEach((v: any) => { if (v.name) allVenueNames.add(v.name.trim()); });
-      results.events.forEach((e: any) => { if (e.venue_name) allVenueNames.add(e.venue_name.trim()); });
-
-      console.log('Processing venues:', Array.from(allVenueNames));
-
-      for (const vName of allVenueNames) {
-        if (!vName) continue;
-        
-        // Check if already in map
-        if (venueMap.has(vName)) continue;
-
-        // Check fuzzy match in existing
-        const match = existingVenues?.find(ev => isSimilar(ev.name, vName));
-        const venueData = results.venues.find((v: any) => v.name?.trim() === vName) || { name: vName };
-        
-        if (match) {
-          console.log('Fuzzy match found for venue:', vName, '->', match.name, match.id);
-          venueMap.set(vName, match.id);
-          details.venues.push({ 
-            name: vName, 
-            status: 'matched', 
-            match: match.name, 
-            matchId: match.id,
-            originalData: venueData
-          });
-          fuzzyMatches++;
-          continue;
+      if (scrapeVenues) {
+        const allVenueNames = new Set<string>();
+        results.venues.forEach((v: any) => { if (v.name) allVenueNames.add(v.name.trim()); });
+        if (scrapeEvents) {
+          results.events.forEach((e: any) => { if (e.venue_name) allVenueNames.add(e.venue_name.trim()); });
         }
-        console.log('Inserting new venue:', vName, venueData);
-        
-        const venueToInsert = {
-          name: vName,
-          address: venueData.address || '',
-          description: venueData.description || '',
-          phone: venueData.phone || '',
-          email: venueData.email || '',
-          website: venueData.website || '',
-          images: Array.isArray(venueData.images) ? venueData.images : [],
-          manager_id: String(user.id).trim()
-        };
 
-        const { data, error } = await supabase.from('venues').insert(venueToInsert).select().maybeSingle();
-        
-        if (data) {
-          console.log('Successfully inserted venue:', data.name, data.id);
-          venueMap.set(vName, data.id);
-          vCount++;
-          details.venues.push({ name: vName, status: 'new' });
+        console.log('Processing venues:', Array.from(allVenueNames));
 
-          // Save venue genres
-          if (Array.isArray(venueData.genres)) {
-            for (const gName of venueData.genres) {
-              const genreId = await matchOrCreateGenre(gName);
-              if (genreId) {
-                const { error: vgError } = await supabase.from('venue_genres').insert({ venue_id: data.id, genre_id: genreId });
-                if (vgError) console.error('Error linking venue to genre:', vName, gName, vgError);
+        for (const vName of allVenueNames) {
+          if (!vName) continue;
+          
+          // Check if already in map
+          if (venueMap.has(vName)) continue;
+
+          // Check fuzzy match in existing
+          const match = existingVenues?.find(ev => isSimilar(ev.name, vName));
+          const venueData = results.venues.find((v: any) => v.name?.trim() === vName) || { name: vName };
+          
+          if (match) {
+            console.log('Fuzzy match found for venue:', vName, '->', match.name, match.id);
+            venueMap.set(vName, match.id);
+            details.venues.push({ 
+              name: vName, 
+              status: 'matched', 
+              match: match.name, 
+              matchId: match.id,
+              originalData: venueData
+            });
+            fuzzyMatches++;
+            continue;
+          }
+          console.log('Inserting new venue:', vName, venueData);
+          
+          const venueToInsert = {
+            name: vName,
+            address: venueData.address || '',
+            description: venueData.description || '',
+            phone: venueData.phone || '',
+            email: venueData.email || '',
+            website: venueData.website || '',
+            images: Array.isArray(venueData.images) ? venueData.images : [],
+            manager_id: String(user.id).trim()
+          };
+
+          const { data, error } = await supabase.from('venues').insert(venueToInsert).select().maybeSingle();
+          
+          if (data) {
+            console.log('Successfully inserted venue:', data.name, data.id);
+            venueMap.set(vName, data.id);
+            vCount++;
+            details.venues.push({ name: vName, status: 'new' });
+
+            // Save venue genres
+            if (Array.isArray(venueData.genres)) {
+              for (const gName of venueData.genres) {
+                const genreId = await matchOrCreateGenre(gName);
+                if (genreId) {
+                  const { error: vgError } = await supabase.from('venue_genres').insert({ venue_id: data.id, genre_id: genreId });
+                  if (vgError) console.error('Error linking venue to genre:', vName, gName, vgError);
+                }
               }
             }
-          }
 
-          // Notify
-          try {
-            await fetch('/api/notify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ type: 'venue', name: vName, details: venueToInsert })
+            // Notify
+            try {
+              await fetch('/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'venue', name: vName, details: venueToInsert })
+              });
+            } catch (nErr) {
+              console.warn('Notification failed for venue:', vName, nErr);
+            }
+          } else if (error) {
+            console.error('Error inserting venue:', vName, error);
+            errors++;
+            details.venues.push({ 
+              name: vName, 
+              status: 'error', 
+              error: `${error.code}: ${error.message}${error.details ? ` (${error.details})` : ''}` 
             });
-          } catch (nErr) {
-            console.warn('Notification failed for venue:', vName, nErr);
           }
-        } else if (error) {
-          console.error('Error inserting venue:', vName, error);
-          errors++;
-          details.venues.push({ 
-            name: vName, 
-            status: 'error', 
-            error: `${error.code}: ${error.message}${error.details ? ` (${error.details})` : ''}` 
-          });
         }
       }
 
-      // 2. Process Venues (from explicit list and events)
-      const allBandNames = new Set<string>();
-      results.bands.forEach((b: any) => { 
-        if (b.name) {
-          splitBandNames(b.name).forEach(n => allBandNames.add(n));
-        }
-      });
-      results.events.forEach((e: any) => { 
-        if (Array.isArray(e.band_names)) {
-          e.band_names.forEach((bn: string) => { 
-            if (bn) splitBandNames(bn).forEach(n => allBandNames.add(n));
+      // 3. Process Bands (from explicit list and events)
+      if (scrapeBands) {
+        const allBandNames = new Set<string>();
+        results.bands.forEach((b: any) => { 
+          if (b.name) {
+            splitBandNames(b.name).forEach(n => allBandNames.add(n));
+          }
+        });
+        if (scrapeEvents) {
+          results.events.forEach((e: any) => { 
+            if (Array.isArray(e.band_names)) {
+              e.band_names.forEach((bn: string) => { 
+                if (bn) splitBandNames(bn).forEach(n => allBandNames.add(n));
+              });
+            } else if (e.band_name) {
+              splitBandNames(e.band_name).forEach(n => allBandNames.add(n));
+            }
           });
-        } else if (e.band_name) {
-          splitBandNames(e.band_name).forEach(n => allBandNames.add(n));
         }
-      });
 
-      console.log('Processing bands:', Array.from(allBandNames));
+        console.log('Processing bands:', Array.from(allBandNames));
 
-      for (const bName of allBandNames) {
-        if (!bName) continue;
+        for (const bName of allBandNames) {
+          if (!bName) continue;
 
-        if (bandMap.has(bName)) continue;
+          if (bandMap.has(bName)) continue;
 
-        const match = existingBands?.find(eb => isSimilar(eb.name, bName));
-        const bandData = results.bands.find((b: any) => b.name?.trim() === bName) || { name: bName };
-        
-        if (match) {
-          console.log('Fuzzy match found for band:', bName, '->', match.name, match.id);
-          bandMap.set(bName, match.id);
-          details.bands.push({ 
-            name: bName, 
-            status: 'matched', 
-            match: match.name, 
-            matchId: match.id,
-            originalData: bandData
-          });
-          fuzzyMatches++;
-          continue;
-        }
-        console.log('Inserting new band:', bName, bandData);
-        
-        const bandToInsert = {
-          name: bName,
-          description: bandData.description || '',
-          phone: bandData.phone || '',
-          email: bandData.email || '',
-          website: bandData.website || '',
-          images: Array.isArray(bandData.images) ? bandData.images : [],
-          manager_id: String(user.id).trim()
-        };
+          const match = existingBands?.find(eb => isSimilar(eb.name, bName));
+          const bandData = results.bands.find((b: any) => b.name?.trim() === bName) || { name: bName };
+          
+          if (match) {
+            console.log('Fuzzy match found for band:', bName, '->', match.name, match.id);
+            bandMap.set(bName, match.id);
+            details.bands.push({ 
+              name: bName, 
+              status: 'matched', 
+              match: match.name, 
+              matchId: match.id,
+              originalData: bandData
+            });
+            fuzzyMatches++;
+            continue;
+          }
+          console.log('Inserting new band:', bName, bandData);
+          
+          const bandToInsert = {
+            name: bName,
+            description: bandData.description || '',
+            phone: bandData.phone || '',
+            email: bandData.email || '',
+            website: bandData.website || '',
+            city: bandData.city || '',
+            state: bandData.state || '',
+            images: Array.isArray(bandData.images) ? bandData.images : [],
+            manager_id: String(user.id).trim()
+          };
 
-        const { data, error } = await supabase.from('bands').insert(bandToInsert).select().maybeSingle();
-        
-        if (data) {
-          console.log('Successfully inserted band:', data.name, data.id);
-          bandMap.set(bName, data.id);
-          bCount++;
-          details.bands.push({ name: bName, status: 'new' });
+          const { data, error } = await supabase.from('bands').insert(bandToInsert).select().maybeSingle();
+          
+          if (data) {
+            console.log('Successfully inserted band:', data.name, data.id);
+            bandMap.set(bName, data.id);
+            bCount++;
+            details.bands.push({ name: bName, status: 'new' });
 
-          // Save band genres
-          if (Array.isArray(bandData.genres)) {
-            for (const gName of bandData.genres) {
-              const genreId = await matchOrCreateGenre(gName);
-              if (genreId) {
-                const { error: bgError } = await supabase.from('band_genres').insert({ band_id: data.id, genre_id: genreId });
-                if (bgError) console.error('Error linking band to genre:', bName, gName, bgError);
+            // Save band genres
+            if (Array.isArray(bandData.genres)) {
+              for (const gName of bandData.genres) {
+                const genreId = await matchOrCreateGenre(gName);
+                if (genreId) {
+                  const { error: bgError } = await supabase.from('band_genres').insert({ band_id: data.id, genre_id: genreId });
+                  if (bgError) console.error('Error linking band to genre:', bName, gName, bgError);
+                }
               }
             }
-          }
 
-          // Notify
-          try {
-            await fetch('/api/notify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ type: 'band', name: bName, details: bandToInsert })
+            // Notify
+            try {
+              await fetch('/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'band', name: bName, details: bandToInsert })
+              });
+            } catch (nErr) {
+              console.warn('Notification failed for band:', bName, nErr);
+            }
+          } else if (error) {
+            console.error('Error inserting band:', bName, error);
+            errors++;
+            details.bands.push({ 
+              name: bName, 
+              status: 'error', 
+              error: `${error.code}: ${error.message}${error.details ? ` (${error.details})` : ''}` 
             });
-          } catch (nErr) {
-            console.warn('Notification failed for band:', bName, nErr);
           }
-        } else if (error) {
-          console.error('Error inserting band:', bName, error);
-          errors++;
-          details.bands.push({ 
-            name: bName, 
-            status: 'error', 
-            error: `${error.code}: ${error.message}${error.details ? ` (${error.details})` : ''}` 
-          });
         }
       }
 
       // 4. Import Events
-      console.log('Processing events:', results.events.length);
-      const processedEventKeys = new Set<string>();
-      
-      for (const e of results.events) {
-        const vName = e.venue_name?.trim();
-        const eventKey = `${e.title?.trim()}|${vName}|${e.start_time?.trim()}`;
+      if (scrapeEvents) {
+        console.log('Processing events:', results.events.length);
+        const processedEventKeys = new Set<string>();
         
-        if (processedEventKeys.has(eventKey)) {
-          console.log('Skipping duplicate event in results:', eventKey);
-          duplicatesSkipped++;
-          details.events.push({ title: e.title || 'Untitled', status: 'skipped', reason: 'Duplicate in scrape results' });
-          continue;
-        }
-        processedEventKeys.add(eventKey);
+        for (const e of results.events) {
+          const vName = e.venue_name?.trim();
+          const eventKey = `${e.title?.trim()}|${vName}|${e.start_time?.trim()}`;
+          
+          if (processedEventKeys.has(eventKey)) {
+            console.log('Skipping duplicate event in results:', eventKey);
+            duplicatesSkipped++;
+            details.events.push({ title: e.title || 'Untitled', status: 'skipped', reason: 'Duplicate in scrape results' });
+            continue;
+          }
+          processedEventKeys.add(eventKey);
 
         let bNames: string[] = [];
         if (Array.isArray(e.band_names)) {
@@ -807,7 +865,7 @@ export function ScraperView() {
           bNames = splitBandNames(e.band_name);
         }
         
-        const venueId = venueMap.get(vName);
+        const venueId = selectedVenueId || venueMap.get(vName);
 
         if (venueId) {
           const genericTitles = ['live music', 'event', 'show', 'concert', 'performance'];
@@ -829,7 +887,7 @@ export function ScraperView() {
           }
 
           console.log('Inserting event for venueId:', venueId, finalTitle);
-          const eventToInsert = {
+          const eventToInsert: any = {
             venue_id: venueId,
             title: finalTitle,
             description: e.description || '',
@@ -850,8 +908,17 @@ export function ScraperView() {
             });
 
             // Link bands to event
-            for (const bName of bNames) {
-              const bandId = bandMap.get(bName);
+            const bandsToLink = [...bNames];
+            if (selectedBandId) {
+                // Find band name for selectedBandId
+                const selectedBand = bands.find(b => b.id === selectedBandId);
+                if (selectedBand && !bandsToLink.includes(selectedBand.name)) {
+                    bandsToLink.push(selectedBand.name);
+                }
+            }
+
+            for (const bName of bandsToLink) {
+              const bandId = bandMap.get(bName) || (bName === bands.find(b => b.id === selectedBandId)?.name ? selectedBandId : null);
               if (bandId) {
                 await supabase.from('acts').insert({
                   event_id: eventData.id,
@@ -870,6 +937,17 @@ export function ScraperView() {
                 }
               }
             }
+
+            // Notify
+            try {
+              await fetch('/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'event', name: finalTitle, details: eventToInsert })
+              });
+            } catch (nErr) {
+              console.warn('Notification failed for event:', finalTitle, nErr);
+            }
           } else if (eventError) {
             console.error('Error inserting event:', finalTitle, eventError);
             errors++;
@@ -879,6 +957,7 @@ export function ScraperView() {
           console.warn('Skipping event: Venue not found/created:', vName, e.title);
           details.events.push({ title: e.title, status: 'skipped', reason: `Venue "${vName}" not found or created` });
         }
+      }
       }
 
       // Log the import
@@ -909,7 +988,7 @@ export function ScraperView() {
         fuzzyMatches
       });
       setImportDetails(details);
-      setResults(null); // Clear results after successful import
+      setResults(null); 
       setStatus('Import complete!');
       refreshProfile();
     } catch (err: any) {
@@ -1039,6 +1118,8 @@ export function ScraperView() {
           phone: item.phone || '',
           email: item.email || '',
           website: item.website || '',
+          city: item.city || '',
+          state: item.state || '',
           images: Array.isArray(item.images) ? item.images : [],
           manager_id: String(user.id).trim()
         };
@@ -1146,6 +1227,17 @@ export function ScraperView() {
                 await supabase.from('event_genres').insert({ event_id: eventData.id, genre_id: genreId });
               }
             }
+          }
+
+          // Notify
+          try {
+            await fetch('/api/notify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'event', name: finalTitle, details: eventToInsert })
+            });
+          } catch (nErr) {
+            console.warn('Notification failed for event:', finalTitle, nErr);
           }
 
           handleRemoveRecord('events', index);
@@ -1278,8 +1370,41 @@ export function ScraperView() {
 
   return (
     <div className="space-y-8">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8">
-        <div className="flex gap-4 mb-6">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-6 mb-6">
+        <h2 className="text-2xl font-bold">Scraper Settings</h2>
+        <div className="flex gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={scrapeVenues} onChange={(e) => setScrapeVenues(e.target.checked)} className="accent-red-600" />
+            Venues
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={scrapeBands} onChange={(e) => setScrapeBands(e.target.checked)} className="accent-red-600" />
+            Bands
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={scrapeEvents} onChange={(e) => setScrapeEvents(e.target.checked)} className="accent-red-600" />
+            Events
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Target Venue (Optional)</label>
+            <select value={selectedVenueId} onChange={(e) => handleVenueChange(e.target.value)} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none">
+              <option value="">Select Venue</option>
+              {venues.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Target Band (Optional)</label>
+            <select value={selectedBandId} onChange={(e) => handleBandChange(e.target.value)} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none">
+              <option value="">Select Band</option>
+              {bands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex gap-4">
           <button 
             onClick={() => setInputType('url')}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${inputType === 'url' ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-400'}`}

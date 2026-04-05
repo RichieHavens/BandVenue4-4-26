@@ -5,11 +5,10 @@ import { Venue, Band, Event } from '../types';
 import { 
   Loader2, Trash2, ShieldCheck, Globe, Sparkles, Settings, 
   MapPin, Music, Calendar, Clock, Search, Filter, UserCircle, Heart,
-  Home, Info, LayoutDashboard, ChevronDown, CheckCircle, LayoutGrid, List, X, Upload, Plus, Archive, RefreshCcw
+  Home, Info, LayoutDashboard, ChevronDown, CheckCircle, LayoutGrid, List, X, Upload, Plus, Archive, RefreshCcw, Copy, Edit2
 } from 'lucide-react';
 import VenueProfileEditor from '../components/VenueProfileEditor';
 import BandProfileEditor from '../components/BandProfileEditor';
-import EventProfileEditor from '../components/EventProfileEditor';
 import EventEditor from '../components/EventEditor';
 import DeduplicationTool from '../components/DeduplicationTool';
 import PeopleManager from '../components/PeopleManager';
@@ -80,7 +79,8 @@ export function AdminView() {
 
   const filteredEvents = useMemo(() => {
     const now = new Date();
-    now.setHours(0, 0, 0, 0);
+    // Use local time for comparison
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     let filtered = events.filter(e => {
       const searchLower = eventSearch.toLowerCase();
@@ -95,9 +95,23 @@ export function AdminView() {
       
       let matchesPast = true;
       if (!showPastEvents) {
-        const eventDate = e.start_time ? new Date(e.start_time) : (e.acts?.[0]?.start_time ? new Date(e.acts[0].start_time) : null);
-        if (eventDate && eventDate < now) {
-          matchesPast = false;
+        const eventDateStr = e.start_time ? e.start_time : (e.acts?.[0]?.start_time ? e.acts[0].start_time : null);
+        if (eventDateStr) {
+          const eventDate = new Date(eventDateStr);
+          // Compare using local date components
+          const eventDateOnly = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+          if (eventDateOnly < today) {
+            matchesPast = false;
+          }
+          if (e.title.toLowerCase().includes('nitetones')) {
+            console.log('DEBUG Nitetones:', {
+              title: e.title,
+              eventDateStr,
+              eventDateOnly,
+              today,
+              matchesPast
+            });
+          }
         }
       }
       
@@ -113,8 +127,10 @@ export function AdminView() {
       if (!dateA) return 1;
       if (!dateB) return -1;
 
-      const isPastA = dateA < now.getTime();
-      const isPastB = dateB < now.getTime();
+      // Use local time for past determination
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const isPastA = dateA < today;
+      const isPastB = dateB < today;
 
       if (isPastA && !isPastB) return 1; // Past events go after upcoming events
       if (!isPastA && isPastB) return -1;
@@ -136,6 +152,61 @@ export function AdminView() {
   const [loadingStock, setLoadingStock] = useState(false);
   const [uploadingHero, setUploadingHero] = useState(false);
   const heroFileInputRef = useRef<HTMLInputElement>(null);
+  const venueReport = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    
+    const report = venues.map(v => {
+      const venueEvents = events.filter(e => e.venue_id === v.id);
+      const futureEvents = venueEvents.filter(e => {
+        const date = e.start_time ? new Date(e.start_time).getTime() : (e.acts?.[0]?.start_time ? new Date(e.acts[0].start_time).getTime() : null);
+        return date && date >= today;
+      });
+      const pastEvents = venueEvents.filter(e => {
+        const date = e.start_time ? new Date(e.start_time).getTime() : (e.acts?.[0]?.start_time ? new Date(e.acts[0].start_time).getTime() : null);
+        return date && date < today;
+      });
+      return { name: v.name, future: futureEvents.length, past: pastEvents.length };
+    });
+    return report.sort((a, b) => a.name.localeCompare(b.name));
+  }, [venues, events]);
+
+  const bandReport = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    
+    // Group events by band ID
+    const bandEventCounts = new Map<string, { future: number, past: number }>();
+    events.forEach(e => {
+        e.acts?.forEach(a => {
+            if (!a.band_id) return;
+            const counts = bandEventCounts.get(a.band_id) || { future: 0, past: 0 };
+            const date = e.start_time ? new Date(e.start_time).getTime() : (e.acts?.[0]?.start_time ? new Date(e.acts[0].start_time).getTime() : null);
+            if (date && date >= today) counts.future++;
+            else if (date && date < today) counts.past++;
+            bandEventCounts.set(a.band_id, counts);
+        });
+    });
+
+    // Group bands by name and sum their counts
+    const bandMap = new Map<string, { future: number, past: number }>();
+    bands.forEach(b => {
+        const counts = bandEventCounts.get(b.id) || { future: 0, past: 0 };
+        const existing = bandMap.get(b.name) || { future: 0, past: 0 };
+        bandMap.set(b.name, {
+            future: existing.future + counts.future,
+            past: existing.past + counts.past
+        });
+    });
+
+    const report = Array.from(bandMap.entries()).map(([name, counts]) => ({
+        name,
+        future: counts.future,
+        past: counts.past
+    }));
+    return report.sort((a, b) => a.name.localeCompare(b.name));
+  }, [bands, events]);
+
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -153,8 +224,10 @@ export function AdminView() {
     if (activeSubTab === 'genres') fetchGenres();
     if (activeSubTab === 'venues') fetchVenues();
     if (activeSubTab === 'bands') fetchBands();
-    if (activeSubTab === 'events') fetchEvents();
+    if (activeSubTab === 'events' || activeSubTab === 'venue_reports' || activeSubTab === 'band_reports') fetchEvents();
     if (activeSubTab === 'stock') fetchStockImages();
+    if (activeSubTab === 'venue_reports') fetchVenues();
+    if (activeSubTab === 'band_reports') fetchBands();
   }, [activeSubTab]);
 
   async function handleHeroUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -393,12 +466,36 @@ export function AdminView() {
     setLoadingEvents(true);
     const { data } = await supabase
       .from('events')
-      .select('*, profiles!updated_by(first_name, last_name, email), venues(name), acts(start_time, bands(name))')
+      .select('*, profiles!updated_by(first_name, last_name, email), venues(name), acts(start_time, band_id, bands(name))')
       .order('created_at', { ascending: false });
     if (data) setEvents(data);
     setLoadingEvents(false);
   }
 
+
+  async function handleDeleteEvent(id: string) {
+    setConfirmDialog({
+      message: 'Are you sure you want to delete this event? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          // Delete acts first due to foreign key constraints
+          await supabase.from('acts').delete().eq('event_id', id);
+          await supabase.from('event_sponsors').delete().eq('event_id', id);
+          await supabase.from('event_genres').delete().eq('event_id', id);
+          
+          const { error } = await supabase.from('events').delete().eq('id', id);
+          if (error) throw error;
+          
+          fetchEvents();
+        } catch (error: any) {
+          console.error('Error deleting event:', error);
+          setErrorMessage(error.message || 'Failed to delete event');
+        } finally {
+          setConfirmDialog(null);
+        }
+      }
+    });
+  }
 
   const handleCopyAsNew = (event: Event) => {
     const { id, created_at, updated_at, updated_by, ...rest } = event;
@@ -570,6 +667,8 @@ export function AdminView() {
     { id: 'scraper', label: 'Uploads' },
     { id: 'sponsors', label: 'Sponsors' },
     { id: 'events', label: 'Events' },
+    { id: 'venue_reports', label: 'Venue Reports' },
+    { id: 'band_reports', label: 'Band Reports' },
     { id: 'syndication', label: 'Syndication' },
     { id: 'genres', label: 'Genres' },
     { id: 'deduplication', label: 'Deduplication' },
@@ -711,16 +810,54 @@ export function AdminView() {
               )}
             </div>
           )}
-          {activeSubTab === 'sponsors' && (
-            <div className="space-y-6 text-center py-12">
-              <div className="w-20 h-20 bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ShieldCheck className="text-neutral-600" size={32} />
+          {activeSubTab === 'venue_reports' && (
+            <div className="space-y-6">
+              <h3 className="text-xl font-bold">Venue Event Summary</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-neutral-800">
+                      <th className="p-4 font-bold text-neutral-400">Venue</th>
+                      <th className="p-4 font-bold text-neutral-400">Future Events</th>
+                      <th className="p-4 font-bold text-neutral-400">Past Events</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {venueReport.map((v, i) => (
+                      <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800">
+                        <td className="p-4 font-medium">{v.name}</td>
+                        <td className="p-4">{v.future}</td>
+                        <td className="p-4">{v.past}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <h3 className="text-xl font-bold">Global Sponsors</h3>
-              <p className="text-neutral-500 max-w-md mx-auto">Manage sponsors that appear across the entire platform and all syndication partners.</p>
-              <button className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl font-bold transition-all">
-                Add Global Sponsor
-              </button>
+            </div>
+          )}
+          {activeSubTab === 'band_reports' && (
+            <div className="space-y-6">
+              <h3 className="text-xl font-bold">Band Event Summary</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-neutral-800">
+                      <th className="p-4 font-bold text-neutral-400">Band</th>
+                      <th className="p-4 font-bold text-neutral-400">Future Events</th>
+                      <th className="p-4 font-bold text-neutral-400">Past Events</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bandReport.map((b, i) => (
+                      <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800">
+                        <td className="p-4 font-medium">{b.name}</td>
+                        <td className="p-4">{b.future}</td>
+                        <td className="p-4">{b.past}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
           {activeSubTab === 'syndication' && (
@@ -740,6 +877,13 @@ export function AdminView() {
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold">Manage Venues</h3>
                 <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingId('new')}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 mr-4"
+                  >
+                    <Plus size={16} />
+                    Create New Venue
+                  </button>
                   <input
                     type="text"
                     placeholder="Search venues..."
@@ -817,6 +961,13 @@ export function AdminView() {
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold">Manage Bands</h3>
                 <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingId('new')}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 mr-4"
+                  >
+                    <Plus size={16} />
+                    Create New Band
+                  </button>
                   <input
                     type="text"
                     placeholder="Search bands..."
@@ -899,13 +1050,22 @@ export function AdminView() {
           )}
           {activeSubTab === 'events' && !editingId && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-4">
                 <h3 className="text-xl font-bold">Manage Events</h3>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                  <button
+                    onClick={() => {
+                      setEditingId('new');
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
+                  >
+                    <Plus size={16} />
+                    New Event
+                  </button>
                   <input
                     type="text"
-                    placeholder="Search events, venues, or bands..."
-                    className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-red-600 outline-none w-64"
+                    placeholder="Search..."
+                    className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-red-600 outline-none w-48"
                     value={eventSearch}
                     onChange={(e) => setEventSearch(e.target.value)}
                   />
@@ -965,15 +1125,24 @@ export function AdminView() {
                       <div className="flex items-center gap-2">
                         <button 
                           onClick={() => handleCopyAsNew(e)}
-                          className="bg-blue-500/10 hover:bg-blue-500 text-blue-500 hover:text-white border border-blue-500/20 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+                          title="Copy"
+                          className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
                         >
-                          Copy
+                          <Copy size={16} />
                         </button>
                         <button 
                           onClick={() => setEditingId(e.id)}
-                          className="bg-red-600/10 hover:bg-red-600 text-red-600 hover:text-white border border-red-600/20 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+                          title="Edit"
+                          className="p-2 text-red-600 hover:bg-red-600/10 rounded-lg transition-all"
                         >
-                          Edit
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteEvent(e.id)}
+                          title="Delete"
+                          className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                        >
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </div>
@@ -999,7 +1168,24 @@ export function AdminView() {
           {activeSubTab === 'events' && editingId && (
             <div className="space-y-6">
               <button onClick={() => setEditingId(null)} className="text-neutral-500 hover:text-white">← Back to List</button>
-              <EventProfileEditor eventId={editingId} />
+              {editingId === 'new' ? (
+                <EventEditor 
+                  onClose={() => setEditingId(null)} 
+                  onSave={() => {
+                    fetchEvents();
+                    setEditingId(null);
+                  }}
+                />
+              ) : (
+                <EventEditor 
+                  event={events.find(e => e.id === editingId)}
+                  onClose={() => setEditingId(null)} 
+                  onSave={() => {
+                    fetchEvents();
+                    setEditingId(null);
+                  }}
+                />
+              )}
             </div>
           )}
           {activeSubTab === 'scraper' && (

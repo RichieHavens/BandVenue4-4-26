@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
 import { UserRole, MusicianProfile } from '../types';
-import { Save, Loader2, User, Mail, Shield, Check, Phone, MapPin, Globe, Video, Trash2, Settings, Music, Camera, Eye, Lock } from 'lucide-react';
+import { Save, Loader2, User, Mail, Shield, Check, Phone, MapPin, Globe, Video, Trash2, Settings, Music, Camera, Eye, Lock, Edit2, X } from 'lucide-react';
 import { formatPhoneNumber } from '../lib/phoneFormatter';
 import { US_STATES, CA_PROVINCES, AddressParts, formatAddress, parseAddress, validateZipForState } from '../lib/geo';
 import { handleSupabaseError, OperationType } from '../lib/error-handler';
+import { updateUserEmail } from '../lib/authService';
 import ImageUpload from './ImageUpload';
 import { UploadedImageSet } from '../lib/imageUtils';
 import ProfilePreviewModal from './ProfilePreviewModal';
@@ -22,7 +23,13 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
   const [accountPhone, setAccountPhone] = useState(profile?.phone || '');
   const [addressParts, setAddressParts] = useState<AddressParts>(parseAddress(profile?.address || ''));
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(profile?.roles || []);
+  const [defaultRole, setDefaultRole] = useState<UserRole | undefined>(profile?.default_role);
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '');
+  
+  // Email Update State
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [updatingEmail, setUpdatingEmail] = useState(false);
   
   // Security State
   const [newPassword, setNewPassword] = useState('');
@@ -68,6 +75,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
       accountPhone !== (profile.phone || '') ||
       avatarUrl !== (profile.avatar_url || '') ||
       formatAddress(addressParts) !== (profile.address || '') ||
+      defaultRole !== profile.default_role ||
       JSON.stringify(selectedRoles.sort()) !== JSON.stringify((profile.roles || []).sort());
     
     let isMusicianDirty = false;
@@ -92,6 +100,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
       setAccountPhone(profile.phone || '');
       setAddressParts(parseAddress(profile.address || ''));
       setSelectedRoles(profile.roles || []);
+      setDefaultRole(profile.default_role);
       setAvatarUrl(profile.avatar_url || '');
       
       // If profile is missing basic info, try to fetch from people table as fallback
@@ -256,6 +265,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
       if (lastName !== (profile?.last_name || '')) changes.last_name = lastName;
       if (accountPhone !== (profile?.phone || '')) changes.phone = accountPhone;
       if (avatarUrl !== (profile?.avatar_url || '')) changes.avatar_url = avatarUrl;
+      if (defaultRole !== profile?.default_role) changes.default_role = defaultRole;
       const newAddress = formatAddress(addressParts);
       if (newAddress !== (profile?.address || '')) changes.address = newAddress;
       if (JSON.stringify(selectedRoles.sort()) !== JSON.stringify((profile?.roles || []).sort())) changes.roles = selectedRoles;
@@ -275,6 +285,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
           phone: accountPhone,
           address: newAddress,
           roles: rolesToSave,
+          default_role: defaultRole,
           avatar_url: avatarUrl
         });
 
@@ -373,6 +384,28 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
       setMessage({ type: 'error', text: error.message });
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  const handleEmailChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail || newEmail === user?.email) {
+      setMessage({ type: 'error', text: 'Please enter a new email address.' });
+      return;
+    }
+
+    setUpdatingEmail(true);
+    setMessage(null);
+
+    try {
+      await updateUserEmail(newEmail, user?.email || '', user?.id || '');
+      setMessage({ type: 'success', text: 'Email update initiated! Please check your new email for a confirmation link.' });
+      setIsEditingEmail(false);
+      setNewEmail('');
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message });
+    } finally {
+      setUpdatingEmail(false);
     }
   };
 
@@ -570,10 +603,41 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
                       <input
                         type="email"
-                        value={user?.email || ''}
-                        disabled
-                        className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl py-3 pl-12 pr-4 text-neutral-500 cursor-not-allowed outline-none"
+                        value={isEditingEmail ? newEmail : (user?.email || '')}
+                        onChange={(e) => setNewEmail(e.target.value)}
+                        disabled={!isEditingEmail || updatingEmail}
+                        className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 pl-12 pr-24 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all disabled:bg-neutral-800/50 disabled:text-neutral-500 disabled:cursor-not-allowed"
+                        placeholder="new-email@example.com"
                       />
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        {isEditingEmail ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={handleEmailChange}
+                              disabled={updatingEmail || !newEmail || newEmail === user?.email}
+                              className="p-2 text-green-500 hover:bg-green-500/10 rounded-lg transition-all disabled:opacity-50"
+                            >
+                              {updatingEmail ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setIsEditingEmail(false); setNewEmail(''); }}
+                              className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                            >
+                              <X size={18} />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { setIsEditingEmail(true); setNewEmail(user?.email || ''); }}
+                            className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-lg transition-all"
+                          >
+                            <Edit2 size={18} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -695,6 +759,35 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                   </button>
                 ))}
               </div>
+
+              {selectedRoles.length > 1 && (
+                <div className="mt-8 p-6 bg-neutral-800/50 border border-neutral-700 rounded-3xl space-y-4">
+                  <div className="flex items-center gap-3">
+                    <Settings className="text-red-600" size={20} />
+                    <h4 className="font-bold text-white">Default Session Role</h4>
+                  </div>
+                  <p className="text-xs text-neutral-400">Choose which role should be active by default when you log in. You can always switch roles using the switcher in the navigation bar.</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedRoles.map((roleId) => {
+                      const roleInfo = publicRoles.find(pr => pr.id === roleId) || (roleId === 'admin' ? { label: 'Super Admin' } : { label: roleId });
+                      return (
+                        <button
+                          key={roleId}
+                          type="button"
+                          onClick={() => setDefaultRole(roleId)}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                            defaultRole === roleId
+                              ? 'bg-red-600 border-red-600 text-white'
+                              : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600'
+                          }`}
+                        >
+                          {roleInfo.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : (

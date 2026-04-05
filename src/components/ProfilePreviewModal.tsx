@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, MapPin, Phone, Globe, Mail, Info, Music, Calendar, Video, Clock, Ticket, Linkedin, Youtube, Link as LinkIcon, Instagram, Headphones, Facebook } from 'lucide-react';
+import { X, MapPin, Phone, Globe, Mail, Info, Music, Calendar, Video, Clock, Ticket, Linkedin, Youtube, Link as LinkIcon, Instagram, Headphones, Facebook, Twitter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { displayAddress } from '../lib/geo';
 import { formatDate, formatTimeString, getDateFromDate } from '../lib/utils';
 import { supabase } from '../lib/supabase';
@@ -20,16 +21,41 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [stackedVenue, setStackedVenue] = useState<any | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [bandMembers, setBandMembers] = useState<any[]>([]);
 
   useEffect(() => {
     if (isOpen && data?.id && (type === 'venue' || type === 'band')) {
       fetchFutureEvents();
+      if (type === 'band') {
+        fetchBandMembers();
+      }
     }
     if (!isOpen) {
       setSelectedEvent(null);
       setStackedVenue(null);
+      setLightboxIndex(null);
+      setBandMembers([]);
     }
   }, [isOpen, data?.id, type]);
+
+  async function fetchBandMembers() {
+    try {
+      const { data: membersData, error } = await supabase
+        .from('band_members')
+        .select('*')
+        .eq('band_id', data.id)
+        .eq('is_active', true)
+        .order('first_name');
+        
+      if (error) throw error;
+      if (membersData) {
+        setBandMembers(membersData);
+      }
+    } catch (err) {
+      console.error('Error fetching band members:', err);
+    }
+  }
 
   async function fetchFutureEvents() {
     setLoadingEvents(true);
@@ -104,6 +130,85 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
 
   if (!isOpen || !data) return null;
 
+  const renderImageGallery = (images: string[]) => {
+    if (!images || images.length === 0) return null;
+    return (
+      <div className="space-y-4">
+        <h3 className="text-xl font-bold text-white border-b border-neutral-800 pb-2">Gallery</h3>
+        <div className="flex overflow-x-auto gap-4 pb-4 snap-x">
+          {images.map((img, idx) => (
+            <div 
+              key={idx} 
+              className="w-48 h-32 shrink-0 rounded-xl overflow-hidden cursor-pointer snap-start border border-neutral-800 hover:border-red-600 transition-colors"
+              onClick={() => setLightboxIndex(idx)}
+            >
+              <img src={img} alt={`Gallery image ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderLightbox = (images: string[]) => {
+    if (lightboxIndex === null || !images || images.length === 0) return null;
+    
+    const handlePrev = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setLightboxIndex(prev => prev !== null ? (prev === 0 ? images.length - 1 : prev - 1) : null);
+    };
+    
+    const handleNext = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setLightboxIndex(prev => prev !== null ? (prev === images.length - 1 ? 0 : prev + 1) : null);
+    };
+
+    return createPortal(
+      <div 
+        className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center p-4"
+        onClick={() => setLightboxIndex(null)}
+      >
+        <button 
+          className="absolute top-6 right-6 text-white/70 hover:text-white bg-neutral-900/50 hover:bg-neutral-800 p-2 rounded-full transition-all"
+          onClick={(e) => { e.stopPropagation(); setLightboxIndex(null); }}
+        >
+          <X size={24} />
+        </button>
+        
+        {images.length > 1 && (
+          <button 
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-neutral-900/50 hover:bg-neutral-800 p-3 rounded-full transition-all"
+            onClick={handlePrev}
+          >
+            <ChevronLeft size={32} />
+          </button>
+        )}
+        
+        <img 
+          src={images[lightboxIndex]} 
+          alt={`Gallery image ${lightboxIndex + 1}`} 
+          className="max-w-full max-h-[90vh] object-contain" 
+          referrerPolicy="no-referrer"
+          onClick={(e) => e.stopPropagation()}
+        />
+        
+        {images.length > 1 && (
+          <button 
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-neutral-900/50 hover:bg-neutral-800 p-3 rounded-full transition-all"
+            onClick={handleNext}
+          >
+            <ChevronRight size={32} />
+          </button>
+        )}
+        
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/70 bg-neutral-900/80 px-4 py-2 rounded-full text-sm font-medium">
+          {lightboxIndex + 1} / {images.length}
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
   const renderEventsSection = () => {
     if (loadingEvents) {
       return (
@@ -177,6 +282,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
         const defaultVenueLogo = STOCK_IMAGES.find(img => img.type === 'logo' && img.category === 'venue')?.url;
 
         return (
+          <>
           <div className="space-y-6">
             <div className="w-full h-64 sm:h-80 relative rounded-t-[2rem] overflow-hidden">
               <img 
@@ -218,6 +324,14 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                       {currentData.description || 'No description provided.'}
                     </p>
                   </div>
+                  {currentData.bag_policy && (
+                    <div className="pt-4">
+                      <h3 className="text-xl font-bold text-white border-b border-neutral-800 pb-2 mb-2">Bag Policy</h3>
+                      <p className="text-neutral-400 leading-relaxed whitespace-pre-wrap">
+                        {currentData.bag_policy}
+                      </p>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-4">
@@ -361,6 +475,21 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                         </a>
                       </div>
                     )}
+                    {currentData.twitter_url && (
+                      <div className="flex items-center gap-3 text-neutral-300">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                          <Twitter size={14} />
+                        </div>
+                        <a 
+                          href={currentData.twitter_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-semibold rounded-xl transition-colors"
+                        >
+                          Twitter (X)
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -374,12 +503,16 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                 </div>
               )}
 
+              {renderImageGallery(currentData.images)}
+
               <div className="space-y-4">
                 <h3 className="text-xl font-bold text-white border-b border-neutral-800 pb-2">Scheduled Events</h3>
                 {renderEventsSection()}
               </div>
             </div>
           </div>
+          {renderLightbox(currentData.images)}
+          </>
         );
 
       case 'band':
@@ -387,6 +520,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
         const defaultBandLogo = STOCK_IMAGES.find(img => img.type === 'logo' && img.category === 'band')?.url;
         
         return (
+          <>
           <div className="space-y-6">
             <div className="w-full h-64 sm:h-80 relative rounded-t-[2rem] overflow-hidden">
               <img 
@@ -571,6 +705,21 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                         </a>
                       </div>
                     )}
+                    {data.twitter_url && (
+                      <div className="flex items-center gap-3 text-neutral-300">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                          <Twitter size={14} />
+                        </div>
+                        <a 
+                          href={data.twitter_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-semibold rounded-xl transition-colors"
+                        >
+                          Twitter (X)
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -583,6 +732,22 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                       <span key={genre} className="px-3 py-1 bg-neutral-800 text-neutral-300 rounded-full text-sm">
                         {genre}
                       </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {type === 'band' && bandMembers.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-xl font-bold text-white border-b border-neutral-800 pb-2">Band Members</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {bandMembers.map((member) => (
+                      <div key={member.id} className="bg-neutral-800 p-4 rounded-xl border border-neutral-700">
+                        <div className="font-bold text-white text-lg">{member.first_name} {member.last_name}</div>
+                        {member.instrument_description && (
+                          <div className="text-red-500 text-sm font-medium mt-1">{member.instrument_description}</div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -601,12 +766,16 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                 </div>
               )}
 
+              {renderImageGallery(data.images)}
+
               <div className="space-y-4">
                 <h3 className="text-xl font-bold text-white border-b border-neutral-800 pb-2">Scheduled Events</h3>
                 {renderEventsSection()}
               </div>
             </div>
           </div>
+          {renderLightbox(data.images)}
+          </>
         );
 
       case 'event':

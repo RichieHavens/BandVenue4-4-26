@@ -106,6 +106,18 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
             </div>
           )}
           
+          {(event.bag_policy || event.venues?.bag_policy) && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Info className="text-red-600" size={20} />
+                <h3 className="text-lg font-bold text-white">Bag Policy</h3>
+              </div>
+              <div className="text-neutral-300 leading-relaxed whitespace-pre-wrap bg-neutral-800/50 p-6 rounded-2xl border border-neutral-800">
+                {event.bag_policy || event.venues?.bag_policy}
+              </div>
+            </div>
+          )}
+          
           {event.acts && event.acts.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">

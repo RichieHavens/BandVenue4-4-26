@@ -9,6 +9,7 @@ import StockImagePicker from './StockImagePicker';
 import { formatPhoneNumber } from '../lib/phoneFormatter';
 import ProfilePreviewModal from './ProfilePreviewModal';
 import { handleSupabaseError, OperationType } from '../lib/error-handler';
+import BandMembersManager from './BandMembersManager';
 
 export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess }: { bandId?: string, onDirtyChange?: (dirty: boolean) => void, onSaveSuccess?: () => void }) {
   const { user, profile } = useAuth();
@@ -31,6 +32,7 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
     apple_music_url: '',
     spotify_url: '',
     facebook_url: '',
+    twitter_url: '',
     logo_url: '',
     hero_url: '',
     images: [],
@@ -60,6 +62,7 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
       band.apple_music_url !== initialBand.apple_music_url ||
       band.spotify_url !== initialBand.spotify_url ||
       band.facebook_url !== initialBand.facebook_url ||
+      band.twitter_url !== initialBand.twitter_url ||
       band.logo_url !== initialBand.logo_url ||
       band.hero_url !== initialBand.hero_url ||
       JSON.stringify(band.images) !== JSON.stringify(initialBand.images) ||
@@ -70,7 +73,7 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
 
   useEffect(() => {
     fetchBand();
-  }, [bandId, user]);
+  }, [bandId, user?.id]);
 
   async function fetchBand() {
     try {
@@ -80,6 +83,33 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
         .select('id')
         .eq('user_id', user?.id)
         .single();
+
+      if (bandId === 'new') {
+        const defaultBand = {
+          name: '',
+          description: '',
+          phone: '',
+          email: '',
+          website: '',
+          linkedin_url: '',
+          pinterest_url: '',
+          youtube_url: '',
+          instagram_url: '',
+          apple_music_url: '',
+          spotify_url: '',
+          facebook_url: '',
+          twitter_url: '',
+          logo_url: '',
+          hero_url: '',
+          images: [],
+          video_links: []
+        };
+        setBand(defaultBand);
+        setInitialBand(defaultBand);
+        setAddressParts(parseAddress(''));
+        setLoading(false);
+        return;
+      }
 
       let query = supabase.from('bands').select('*');
       
@@ -109,6 +139,7 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
         apple_music_url: '',
         spotify_url: '',
         facebook_url: '',
+        twitter_url: '',
         logo_url: '',
         hero_url: '',
         images: [],
@@ -217,7 +248,8 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
       }
 
       setMessage({ type: 'success', text: 'Band profile updated successfully!' });
-      setInitialBand({ ...band });
+      setBand(prev => ({ ...prev, id: data.id }));
+      setInitialBand({ ...band, id: data.id });
       
       setTimeout(() => {
         onSaveSuccess?.();
@@ -237,6 +269,15 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
         <div className="flex items-center justify-between">
           <h2 className="text-3xl font-bold">Band Profile{band.name ? `: ${band.name}` : ''}</h2>
           <div className="flex items-center gap-4">
+            {band.id && (
+              <button
+                type="button"
+                onClick={() => document.getElementById('band-members-section')?.scrollIntoView({ behavior: 'smooth' })}
+                className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all"
+              >
+                Manage Members
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setShowPreview(true)}
@@ -271,100 +312,6 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
           data={band} 
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-4">
-            <label className="text-sm font-medium text-neutral-400">Band Logo (Square - 400x400 preferred)</label>
-            <div className="flex items-center gap-6">
-              <div className="w-32 h-32 bg-neutral-800 rounded-2xl overflow-hidden border border-neutral-700 relative group">
-                {band.logo_url ? (
-                  <>
-                    <img src={band.logo_url} alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    <button
-                      type="button"
-                      onClick={() => setBand({ ...band, logo_url: '' })}
-                      className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10"
-                      title="Delete Logo"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-neutral-600">
-                    <ImageIcon size={32} />
-                  </div>
-                )}
-              </div>
-              <ImageUpload 
-                type="logo"
-                onUploadComplete={(result) => {
-                  const url = typeof result === 'string' ? result : (result.logo || result.original);
-                  setBand(prev => ({ ...prev, logo_url: url }));
-                }}
-                className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer border border-neutral-700"
-              >
-                Upload Logo
-              </ImageUpload>
-              <button
-                type="button"
-                onClick={() => {
-                  setStockPickerConfig({ type: 'logo', category: 'band' });
-                  setIsStockPickerOpen(true);
-                }}
-                className="bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-neutral-700 flex items-center gap-2"
-              >
-                <ImageIcon size={16} />
-                Stock Library
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <label className="text-sm font-medium text-neutral-400">Hero Banner (Wide - 1920x1080 preferred)</label>
-            <div className="space-y-4">
-              <div className="w-full h-32 bg-neutral-800 rounded-2xl overflow-hidden border border-neutral-700 relative group">
-                {band.hero_url ? (
-                  <>
-                    <img src={band.hero_url} alt="Hero" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    <button
-                      type="button"
-                      onClick={() => setBand({ ...band, hero_url: '' })}
-                      className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10"
-                      title="Delete Hero Banner"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-neutral-600">
-                    <ImageIcon size={32} />
-                  </div>
-                )}
-              </div>
-              <ImageUpload 
-                type="hero"
-                onUploadComplete={(result) => {
-                  const pcUrl = typeof result === 'string' ? result : (result.hero_pc || result.original);
-                  setBand(prev => ({ ...prev, hero_url: pcUrl }));
-                }}
-                className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer border border-neutral-700 inline-block"
-              >
-                Upload Hero Banner
-              </ImageUpload>
-              <button
-                type="button"
-                onClick={() => {
-                  setStockPickerConfig({ type: 'hero', category: 'band' });
-                  setIsStockPickerOpen(true);
-                }}
-                className="bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-neutral-700 flex items-center gap-2"
-              >
-                <ImageIcon size={16} />
-                Stock Library
-              </button>
-            </div>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-400">Band Name</label>
@@ -376,36 +323,6 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
               className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Phone</label>
-            <input
-              type="tel"
-              value={band.phone || ''}
-              onChange={(e) => setBand({ ...band, phone: formatPhoneNumber(e.target.value) })}
-              placeholder="(555) 000-0000"
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Email</label>
-            <input
-              type="email"
-              value={band.email || ''}
-              onChange={(e) => setBand({ ...band, email: e.target.value })}
-              placeholder="band@email.com"
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Website</label>
-            <input
-              type="text"
-              value={band.website || ''}
-              onChange={(e) => setBand({ ...band, website: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-
           <div className="space-y-4 md:col-span-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Address Information</label>
@@ -487,6 +404,135 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
             </div>
           </div>
           <div className="space-y-2">
+            <label className="text-sm font-medium text-neutral-400">Phone</label>
+            <input
+              type="tel"
+              value={band.phone || ''}
+              onChange={(e) => setBand({ ...band, phone: formatPhoneNumber(e.target.value) })}
+              placeholder="(555) 000-0000"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-neutral-400">Email</label>
+            <input
+              type="email"
+              value={band.email || ''}
+              onChange={(e) => setBand({ ...band, email: e.target.value })}
+              placeholder="band@email.com"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
+            />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-sm font-medium text-neutral-400">Description</label>
+            <textarea
+              rows={4}
+              value={band.description || ''}
+              onChange={(e) => setBand({ ...band, description: e.target.value })}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all resize-none"
+            />
+          </div>
+          <div className="space-y-4 md:col-span-2">
+            <label className="text-sm font-medium text-neutral-400">Band Logo (Square - 400x400 preferred)</label>
+            <div className="flex items-center gap-6">
+              <div className="w-32 h-32 bg-neutral-800 rounded-2xl overflow-hidden border border-neutral-700 relative group">
+                {band.logo_url ? (
+                  <>
+                    <img src={band.logo_url} alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <button
+                      type="button"
+                      onClick={() => setBand({ ...band, logo_url: '' })}
+                      className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10"
+                      title="Delete Logo"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-neutral-600">
+                    <ImageIcon size={32} />
+                  </div>
+                )}
+              </div>
+              <ImageUpload 
+                type="logo"
+                onUploadComplete={(result) => {
+                  const url = typeof result === 'string' ? result : (result.logo || result.original);
+                  setBand(prev => ({ ...prev, logo_url: url }));
+                }}
+                className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer border border-neutral-700"
+              >
+                Upload Logo
+              </ImageUpload>
+              <button
+                type="button"
+                onClick={() => {
+                  setStockPickerConfig({ type: 'logo', category: 'band' });
+                  setIsStockPickerOpen(true);
+                }}
+                className="bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-neutral-700 flex items-center gap-2"
+              >
+                <ImageIcon size={16} />
+                Stock Library
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4 md:col-span-2">
+            <label className="text-sm font-medium text-neutral-400">Hero Banner (Wide - 1920x1080 preferred)</label>
+            <div className="space-y-4">
+              <div className="w-full h-32 bg-neutral-800 rounded-2xl overflow-hidden border border-neutral-700 relative group">
+                {band.hero_url ? (
+                  <>
+                    <img src={band.hero_url} alt="Hero" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <button
+                      type="button"
+                      onClick={() => setBand({ ...band, hero_url: '' })}
+                      className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10"
+                      title="Delete Hero Banner"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-neutral-600">
+                    <ImageIcon size={32} />
+                  </div>
+                )}
+              </div>
+              <ImageUpload 
+                type="hero"
+                onUploadComplete={(result) => {
+                  const pcUrl = typeof result === 'string' ? result : (result.hero_pc || result.original);
+                  setBand(prev => ({ ...prev, hero_url: pcUrl }));
+                }}
+                className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer border border-neutral-700 inline-block"
+              >
+                Upload Hero Banner
+              </ImageUpload>
+              <button
+                type="button"
+                onClick={() => {
+                  setStockPickerConfig({ type: 'hero', category: 'band' });
+                  setIsStockPickerOpen(true);
+                }}
+                className="bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-neutral-700 flex items-center gap-2"
+              >
+                <ImageIcon size={16} />
+                Stock Library
+              </button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-neutral-400">Website</label>
+            <input
+              type="text"
+              value={band.website || ''}
+              onChange={(e) => setBand({ ...band, website: e.target.value })}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
+            />
+          </div>
+          <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-400">LinkedIn URL</label>
             <input
               type="text"
@@ -546,6 +592,15 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
               type="text"
               value={band.facebook_url || ''}
               onChange={(e) => setBand({ ...band, facebook_url: e.target.value })}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-neutral-400">Twitter (X) URL</label>
+            <input
+              type="text"
+              value={band.twitter_url || ''}
+              onChange={(e) => setBand({ ...band, twitter_url: e.target.value })}
               className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
@@ -649,6 +704,8 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
           </p>
         </div>
       </form>
+
+      <BandMembersManager bandId={band.id || 'new'} />
 
       <StockImagePicker 
         isOpen={isStockPickerOpen}

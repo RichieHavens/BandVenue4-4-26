@@ -34,6 +34,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
     apple_music_url: '',
     spotify_url: '',
     facebook_url: '',
+    twitter_url: '',
     food_description: '',
     logo_url: '',
     hero_url: '',
@@ -65,6 +66,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
       venue.apple_music_url !== initialVenue.apple_music_url ||
       venue.spotify_url !== initialVenue.spotify_url ||
       venue.facebook_url !== initialVenue.facebook_url ||
+      venue.twitter_url !== initialVenue.twitter_url ||
       venue.food_description !== initialVenue.food_description ||
       venue.logo_url !== initialVenue.logo_url ||
       venue.hero_url !== initialVenue.hero_url ||
@@ -76,7 +78,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
 
   useEffect(() => {
     fetchVenues();
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (selectedVenueId) {
@@ -92,6 +94,35 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
         .select('id')
         .eq('user_id', user?.id)
         .single();
+
+      if (venueId === 'new') {
+        const defaultVenue = {
+          name: '',
+          description: '',
+          address: '',
+          phone: '',
+          email: '',
+          website: '',
+          linkedin_url: '',
+          pinterest_url: '',
+          youtube_url: '',
+          instagram_url: '',
+          apple_music_url: '',
+          spotify_url: '',
+          facebook_url: '',
+          twitter_url: '',
+          food_description: '',
+          logo_url: '',
+          hero_url: '',
+          images: []
+        };
+        setVenue(defaultVenue);
+        setInitialVenue(defaultVenue);
+        setAddressParts(parseAddress(''));
+        setSelectedVenueId('');
+        setLoading(false);
+        return;
+      }
 
       let query = supabase.from('venues').select('*');
       
@@ -131,6 +162,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
           apple_music_url: '',
           spotify_url: '',
           facebook_url: '',
+          twitter_url: '',
           food_description: '',
           logo_url: '',
           hero_url: '',
@@ -169,6 +201,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
         apple_music_url: '',
         spotify_url: '',
         facebook_url: '',
+        twitter_url: '',
         food_description: '',
         tech_specs: '',
         logo_url: '',
@@ -302,7 +335,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
           ...cleanVenue,
           ...addressParts,
           address: formatAddress(addressParts),
-          id: selectedVenueId,
+          id: selectedVenueId || undefined,
           website: finalWebsite,
           manager_id: venue.manager_id || user?.id, // Preserve existing manager or set to current
           person_id: venue.person_id || personData?.id, // Link to person record if available
@@ -321,9 +354,10 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
       }
 
       setMessage({ type: 'success', text: 'Venue profile updated successfully!' });
-      const updatedVenue = { ...venue, website: cleanWebsite(finalWebsite), address: formatAddress(addressParts) };
+      const updatedVenue = { ...venue, id: data.id, website: cleanWebsite(finalWebsite), address: formatAddress(addressParts) };
       setVenue(updatedVenue);
       setInitialVenue(updatedVenue);
+      setSelectedVenueId(data.id);
       
       setTimeout(() => {
         onSaveSuccess?.();
@@ -386,7 +420,101 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
           data={{ ...venue, address: formatAddress(addressParts) }} 
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-neutral-400">Venue Name</label>
+            <input
+              type="text"
+              required
+              value={venue.name || ''}
+              onChange={(e) => setVenue({ ...venue, name: e.target.value })}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
+            />
+          </div>
+          <div className="space-y-4 md:col-span-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Address Information</label>
+              <div className="flex bg-neutral-800 p-1 rounded-xl border border-neutral-700">
+                <button
+                  type="button"
+                  onClick={() => setAddressParts({ ...addressParts, country: 'US', state: '' })}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    addressParts.country === 'US' ? 'bg-red-600 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                  }`}
+                >
+                  USA
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAddressParts({ ...addressParts, country: 'CA', state: '' })}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    addressParts.country === 'CA' ? 'bg-red-600 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                  }`}
+                >
+                  CANADA
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2 space-y-2">
+                <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Street Address</label>
+                <div className="relative">
+                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
+                  <input
+                    type="text"
+                    value={addressParts.street || ''}
+                    onChange={(e) => setAddressParts({ ...addressParts, street: e.target.value })}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 pl-12 pr-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
+                    placeholder="123 Music Ave"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">City</label>
+                <input
+                  type="text"
+                  value={addressParts.city || ''}
+                  onChange={(e) => setAddressParts({ ...addressParts, city: e.target.value })}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
+                  placeholder="Nashville"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
+                    {addressParts.country === 'US' ? 'State' : 'Province'}
+                  </label>
+                  <select
+                    value={addressParts.state || ''}
+                    onChange={(e) => setAddressParts({ ...addressParts, state: e.target.value })}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all appearance-none"
+                  >
+                    <option value="">Select...</option>
+                    {(addressParts.country === 'US' ? US_STATES : CA_PROVINCES).map((item) => (
+                      <option key={item.code} value={item.code}>{item.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
+                    {addressParts.country === 'US' ? 'Zip Code' : 'Postal Code'}
+                  </label>
+                  <input
+                    type="text"
+                    value={addressParts.zip || ''}
+                    onChange={(e) => setAddressParts({ ...addressParts, zip: e.target.value })}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
+                    placeholder={addressParts.country === 'US' ? '37201' : 'M5V 2T6'}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-4">
             <label className="text-sm font-medium text-neutral-400">Venue Logo (Square - 400x400 preferred)</label>
             <div className="flex items-center gap-6">
@@ -478,17 +606,22 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
               </button>
             </div>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Venue Name</label>
-            <input
-              type="text"
-              required
-              value={venue.name || ''}
-              onChange={(e) => setVenue({ ...venue, name: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-sm font-medium text-neutral-400">Description</label>
+            <textarea
+              rows={4}
+              value={venue.description || ''}
+              onChange={(e) => setVenue({ ...venue, description: e.target.value })}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all resize-none"
+            />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-sm font-medium text-neutral-400">Bag Policy</label>
+            <textarea
+              rows={4}
+              value={venue.bag_policy || ''}
+              onChange={(e) => setVenue({ ...venue, bag_policy: e.target.value })}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all resize-none"
             />
           </div>
           <div className="space-y-2">
@@ -569,98 +702,17 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
               className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-medium text-neutral-400">Description</label>
-            <textarea
-              rows={4}
-              value={venue.description || ''}
-              onChange={(e) => setVenue({ ...venue, description: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all resize-none"
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-neutral-400">Twitter (X) URL</label>
+            <input
+              type="text"
+              value={venue.twitter_url || ''}
+              onChange={(e) => setVenue({ ...venue, twitter_url: e.target.value })}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
-          <div className="space-y-4 md:col-span-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Address Information</label>
-              <div className="flex bg-neutral-800 p-1 rounded-xl border border-neutral-700">
-                <button
-                  type="button"
-                  onClick={() => setAddressParts({ ...addressParts, country: 'US', state: '' })}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    addressParts.country === 'US' ? 'bg-red-600 text-white' : 'text-neutral-500 hover:text-neutral-300'
-                  }`}
-                >
-                  USA
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAddressParts({ ...addressParts, country: 'CA', state: '' })}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    addressParts.country === 'CA' ? 'bg-red-600 text-white' : 'text-neutral-500 hover:text-neutral-300'
-                  }`}
-                >
-                  CANADA
-                </button>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2 space-y-2">
-                <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Street Address</label>
-                <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
-                  <input
-                    type="text"
-                    value={addressParts.street || ''}
-                    onChange={(e) => setAddressParts({ ...addressParts, street: e.target.value })}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 pl-12 pr-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
-                    placeholder="123 Music Ave"
-                  />
-                </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">City</label>
-                <input
-                  type="text"
-                  value={addressParts.city || ''}
-                  onChange={(e) => setAddressParts({ ...addressParts, city: e.target.value })}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
-                  placeholder="Nashville"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
-                    {addressParts.country === 'US' ? 'State' : 'Province'}
-                  </label>
-                  <select
-                    value={addressParts.state || ''}
-                    onChange={(e) => setAddressParts({ ...addressParts, state: e.target.value })}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all appearance-none"
-                  >
-                    <option value="">Select...</option>
-                    {(addressParts.country === 'US' ? US_STATES : CA_PROVINCES).map((item) => (
-                      <option key={item.code} value={item.code}>{item.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
-                    {addressParts.country === 'US' ? 'Zip Code' : 'Postal Code'}
-                  </label>
-                  <input
-                    type="text"
-                    value={addressParts.zip || ''}
-                    onChange={(e) => setAddressParts({ ...addressParts, zip: e.target.value })}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
-                    placeholder={addressParts.country === 'US' ? '37201' : 'M5V 2T6'}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-400">Phone</label>
             <div className="relative">

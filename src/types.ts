@@ -8,6 +8,7 @@ export interface Profile {
   phone?: string;
   address?: string;
   roles: UserRole[];
+  default_role?: UserRole;
   avatar_url?: string;
   created_at: string;
 }
@@ -64,11 +65,51 @@ export interface Venue {
   apple_music_url?: string;
   spotify_url?: string;
   facebook_url?: string;
+  twitter_url?: string;
   images: string[];
+  bag_policy?: string;
   is_archived?: boolean;
   created_at: string;
   updated_at?: string;
   updated_by?: string;
+}
+
+export interface VenueEventProfile {
+  id: string;
+  venue_id: string;
+  title: string;
+  description: string;
+  start_time: string;
+  end_time?: string;
+  doors_open_time: string;
+  cover_charge: number;
+  recap?: string;
+  internal_notes?: string;
+  bag_policy?: string;
+  overall_status: 'draft' | 'pending' | 'confirmed' | 'canceled' | 'past';
+  has_multiple_acts: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface VenueEventAct {
+  id: string;
+  event_id: string;
+  band_id?: string;
+  start_time?: string;
+  end_time?: string;
+  act_status: 'empty' | 'pending' | 'confirmed' | 'canceled';
+  sort_order: number;
+}
+
+export interface VenueEventDocument {
+  id: string;
+  event_id: string;
+  file_name: string;
+  file_url: string;
+  document_type: 'contract' | 'tech_spec' | 'other';
+  created_at: string;
 }
 
 export interface Band {
@@ -76,6 +117,8 @@ export interface Band {
   manager_id?: string;
   person_id?: string;
   name: string;
+  manager_first_name?: string;
+  manager_last_name?: string;
   description: string;
   address?: string;
   street?: string;
@@ -95,10 +138,13 @@ export interface Band {
   apple_music_url?: string;
   spotify_url?: string;
   facebook_url?: string;
+  twitter_url?: string;
   images: string[];
   video_links: string[];
   is_published?: boolean;
   is_archived?: boolean;
+  is_confirmed: boolean;
+  created_by_venue_id?: string;
   created_at: string;
   updated_at?: string;
   updated_by?: string;
@@ -119,6 +165,8 @@ export interface Event {
   id: string;
   venue_id: string;
   title: string;
+  band_event_name?: string;
+  venue_event_name?: string;
   description: string;
   start_time: string;
   end_time?: string;
@@ -130,11 +178,14 @@ export interface Event {
   band_confirmed: boolean;
   is_public: boolean;
   is_published: boolean;
+  bag_policy?: string;
   hero_url?: string;
   venue_hero_url?: string;
   created_at: string;
   updated_at?: string;
   updated_by?: string;
+  created_by?: string;
+  status?: 'pending' | 'confirmed' | 'rejected';
   venues?: Venue;
   acts?: Act[];
 }
@@ -154,6 +205,19 @@ export interface VenueSponsor {
   description: string;
   logo_url: string;
   created_at: string;
+}
+
+export interface BandMember {
+  id: string;
+  band_id: string;
+  person_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  instrument_description: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface BookingInquiry {

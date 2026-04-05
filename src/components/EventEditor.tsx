@@ -17,8 +17,14 @@ interface EventEditorProps {
 
 export default function EventEditor({ event, isCopying = false, onClose, onSave }: EventEditorProps) {
   const { user, profile } = useAuth();
-  const [formData, setFormData] = useState<Partial<Event>>(event || {
+  const [formData, setFormData] = useState<Partial<Event>>(event ? {
+    ...event,
+    band_event_name: event.band_event_name || (profile?.roles.includes('band_manager') || profile?.roles.includes('admin') ? event.title : ''),
+    venue_event_name: event.venue_event_name || (profile?.roles.includes('venue_manager') && !profile?.roles.includes('admin') ? event.title : '')
+  } : {
     title: '',
+    band_event_name: '',
+    venue_event_name: '',
     description: '',
     doors_open_time: '19:00',
     ticket_price_low: 0,
@@ -30,7 +36,7 @@ export default function EventEditor({ event, isCopying = false, onClose, onSave 
     band_confirmed: false
   });
   
-  const [acts, setActs] = useState<Partial<Act>[]>([]);
+  const [acts, setActs] = useState<Partial<Act>[]>(event ? [] : [{ band_id: '', start_time: '' }]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [bands, setBands] = useState<Band[]>([]);
   const [sponsors, setSponsors] = useState<VenueSponsor[]>([]);
@@ -65,9 +71,9 @@ export default function EventEditor({ event, isCopying = false, onClose, onSave 
     const [year, month, day] = dateStr.split('-').map(Number);
     const selectedDate = new Date(year, month - 1, day);
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
-    if (selectedDate < today) {
+    if (selectedDate < todayDateOnly) {
       setDateError('Cannot create or edit events with a date in the past.');
     } else {
       setDateError(null);
@@ -153,9 +159,9 @@ export default function EventEditor({ event, isCopying = false, onClose, onSave 
     const [year, month, day] = eventDate.split('-').map(Number);
     const selectedDate = new Date(year, month - 1, day);
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
-    if (selectedDate < today) {
+    if (selectedDate < todayDateOnly) {
       setMessage({ type: 'error', text: 'Cannot create or edit events with a date in the past.' });
       return;
     }
@@ -167,7 +173,7 @@ export default function EventEditor({ event, isCopying = false, onClose, onSave 
       const combinedEndTime = new Date(`${eventDate}T${endTime}`).toISOString();
 
       const eventToSave: any = {
-        title: formData.title,
+        title: formData.band_event_name || formData.venue_event_name || 'Untitled Event',
         description: formData.description,
         venue_id: formData.venue_id,
         end_time: combinedEndTime,
@@ -207,32 +213,38 @@ export default function EventEditor({ event, isCopying = false, onClose, onSave 
       // Save Acts
       await supabase.from('acts').delete().eq('event_id', savedEvent.id);
       if (acts.length > 0) {
-        await supabase.from('acts').insert(
-          acts.map(act => {
-            // Reconstruct full timestamp for acts using the event date
-            let actStartTime = act.start_time;
-            if (actStartTime && !actStartTime.includes('T')) {
-              actStartTime = new Date(`${eventDate}T${actStartTime}`).toISOString();
-            }
-            return { ...act, start_time: actStartTime, event_id: savedEvent.id };
-          })
-        );
+        const actsToInsert = acts.map(act => {
+          // Reconstruct full timestamp for acts using the event date
+          let actStartTime = act.start_time;
+          if (actStartTime && !actStartTime.includes('T')) {
+            actStartTime = new Date(`${eventDate}T${actStartTime}`).toISOString();
+          } else if (!actStartTime) {
+            actStartTime = new Date(`${eventDate}T${startTime}`).toISOString();
+          }
+          const { id, created_at, ...actData } = act as any;
+          return { ...actData, start_time: actStartTime, event_id: savedEvent.id };
+        });
+
+        const { error: actsError } = await supabase.from('acts').insert(actsToInsert);
+        if (actsError) throw actsError;
       }
 
       // Save Sponsors
       await supabase.from('event_sponsors').delete().eq('event_id', savedEvent.id);
       if (selectedSponsors.length > 0) {
-        await supabase.from('event_sponsors').insert(
+        const { error: sponsorsError } = await supabase.from('event_sponsors').insert(
           selectedSponsors.map(sid => ({ event_id: savedEvent.id, sponsor_id: sid }))
         );
+        if (sponsorsError) throw sponsorsError;
       }
 
       // Save Genres
       await supabase.from('event_genres').delete().eq('event_id', savedEvent.id);
       if (selectedGenres.length > 0) {
-        await supabase.from('event_genres').insert(
+        const { error: genresError } = await supabase.from('event_genres').insert(
           selectedGenres.map(gid => ({ event_id: savedEvent.id, genre_id: gid }))
         );
+        if (genresError) throw genresError;
       }
 
       setMessage({ type: 'success', text: 'Event saved successfully!' });
@@ -300,16 +312,30 @@ export default function EventEditor({ event, isCopying = false, onClose, onSave 
           {/* Basic Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-neutral-400">Event Title</label>
+              <label className="text-sm font-medium text-neutral-400">Band Event Name (Preferred)</label>
               <input
                 type="text"
-                required
-                value={formData.title || ''}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
+                required={!formData.venue_event_name}
+                disabled={!(profile?.roles.includes('admin') || profile?.roles.includes('band_manager'))}
+                value={formData.band_event_name || ''}
+                onChange={(e) => setFormData({ ...formData, band_event_name: e.target.value })}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder="e.g., Summer Tour 2026"
               />
             </div>
             <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-400">Venue Event Name</label>
+              <input
+                type="text"
+                required={!formData.band_event_name}
+                disabled={!(profile?.roles.includes('admin') || profile?.roles.includes('venue_manager'))}
+                value={formData.venue_event_name || ''}
+                onChange={(e) => setFormData({ ...formData, venue_event_name: e.target.value })}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder="e.g., Live Music Friday"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium text-neutral-400">Venue</label>
               <select
                 required
@@ -557,7 +583,7 @@ export default function EventEditor({ event, isCopying = false, onClose, onSave 
                 onClick={() => setActs([...acts, { band_id: '', start_time: '' }])}
                 className="text-red-600 hover:text-red-500 text-sm font-bold uppercase tracking-widest flex items-center gap-1"
               >
-                <Plus size={16} /> Add Act
+                <Plus size={16} /> {acts.length > 0 ? 'Add Another Act' : 'Add Act'}
               </button>
             </div>
             <div className="space-y-3">

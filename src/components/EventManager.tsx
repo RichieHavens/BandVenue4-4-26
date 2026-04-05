@@ -19,10 +19,10 @@ export default function EventManager() {
   const [isCopying, setIsCopying] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       fetchEvents();
     }
-  }, [user]);
+  }, [user?.id]);
 
   async function fetchEvents() {
     try {
@@ -191,7 +191,7 @@ export default function EventManager() {
             className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl font-semibold transition-all shadow-lg shadow-red-600/20 flex items-center gap-2"
           >
             <Plus size={20} />
-            Create Event
+            New Event
           </button>
         </div>
       </div>
@@ -269,9 +269,9 @@ export default function EventManager() {
                   <button
                     onClick={() => handleCopyAsNew(event)}
                     title="Copy"
-                    className="p-1.5 text-neutral-600 hover:text-blue-500 hover:bg-blue-500/10 rounded transition-all"
+                    className="p-1.5 text-neutral-600 hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
                   >
-                    <Copy size={14} />
+                    <Copy size={16} />
                   </button>
                   <button
                     onClick={() => {
@@ -280,9 +280,9 @@ export default function EventManager() {
                       setShowEditor(true);
                     }}
                     title="Edit"
-                    className="p-1.5 text-neutral-600 hover:text-red-600 hover:bg-red-600/10 rounded transition-all"
+                    className="p-1.5 text-neutral-600 hover:text-red-600 hover:bg-red-600/10 rounded-lg transition-all"
                   >
-                    <Edit2 size={14} />
+                    <Edit2 size={16} />
                   </button>
                 </div>
               </div>

@@ -96,33 +96,45 @@ export function BandsView() {
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 className="animate-spin text-red-600" size={48} /></div>
       ) : filtered.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {filtered.map((band) => {
             const defaultBandLogo = STOCK_IMAGES.find(img => img.type === 'logo' && img.category === 'band')?.url;
             return (
               <div 
                 key={band.id} 
-                className="flex items-center gap-4 p-4 bg-neutral-900 border border-neutral-800 rounded-2xl cursor-pointer hover:border-neutral-700 transition-all group"
+                className="flex gap-6 p-6 bg-neutral-900 border border-neutral-800 rounded-3xl hover:border-neutral-700 transition-all group cursor-pointer"
                 onClick={() => {
                   setSelectedBand(band);
                   setIsPreviewOpen(true);
                 }}
               >
-                <div className="w-16 h-16 rounded-full bg-neutral-800 overflow-hidden shrink-0 border border-neutral-700">
+                <div className="w-32 h-32 rounded-2xl bg-neutral-800 overflow-hidden shrink-0">
                   <img 
                     src={band.logo_url || band.images?.[0] || defaultBandLogo} 
                     alt={band.name} 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     referrerPolicy="no-referrer"
                   />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-sm truncate">{band.name}</h3>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {(band as any).genres?.slice(0, 2).map((g: string) => (
-                      <span key={g} className="text-[9px] font-bold uppercase tracking-widest text-red-600/70 truncate">{g}</span>
+                <div>
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {(band as any).genres?.map((g: string) => (
+                      <span key={g} className="text-[10px] font-bold uppercase tracking-widest text-red-600/70">{g}</span>
                     ))}
                   </div>
+                  <h3 className="text-2xl font-bold mb-1">{band.name}</h3>
+                  {(band.city || band.state) && (
+                    <p className="text-neutral-500 text-sm mb-3">
+                      {[band.city, band.state].filter(Boolean).join(', ')}
+                    </p>
+                  )}
+                  <p className="text-neutral-400 line-clamp-2 text-sm">{band.description}</p>
+                  {(band as any).updated_at && (
+                    <p className="text-[10px] text-neutral-600 mt-2">
+                      Updated: {formatDate((band as any).updated_at)} 
+                      {(band as any).profiles?.first_name ? ` by ${(band as any).profiles.first_name} ${(band as any).profiles.last_name}` : ''}
+                    </p>
+                  )}
                 </div>
               </div>
             );
