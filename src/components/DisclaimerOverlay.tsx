@@ -57,7 +57,7 @@ export default function DisclaimerOverlay() {
       >
         <div className="w-full flex items-center justify-center mb-6">
           <img 
-            src="/BandVenue_Logo.png" 
+            src="/bandvenue_logo.png" 
             alt="BandVenue Logo" 
             className="w-48 h-auto object-contain"
             referrerPolicy="no-referrer"

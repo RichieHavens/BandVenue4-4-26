@@ -28,7 +28,7 @@ export default function ResetPasswordView({ onComplete }: { onComplete: () => vo
       <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-8 text-white shadow-2xl">
         <div className="w-full flex items-center justify-center mb-8">
           <img 
-            src="/BandVenue_Logo.png" 
+            src="/bandvenue_logo.png" 
             alt="BandVenue Logo" 
             className="w-48 h-auto object-contain"
             referrerPolicy="no-referrer"
