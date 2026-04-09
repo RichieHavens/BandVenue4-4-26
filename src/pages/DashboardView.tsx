@@ -12,7 +12,7 @@ import { Button } from '../components/ui/Button';
 
 export function DashboardView() {
   const { roleData, profile } = useAuth();
-  const { setActiveTab } = useNavigationContext();
+  const { setActiveTab, setEventFilter } = useNavigationContext();
 
   if (!roleData) {
     return (
@@ -29,65 +29,65 @@ export function DashboardView() {
     switch (cardId) {
       case 'attention_required':
         return (
-          <Card key={cardId} className="bg-neutral-800/50 border-neutral-700 p-6 group hover:bg-neutral-800 transition-all cursor-pointer" onClick={() => setActiveTab('manage-events')}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-red-600/10 rounded-2xl text-red-500">
-                <AlertCircle size={24} />
+          <Card key={cardId} className="bg-neutral-900 border-neutral-800 p-4 group hover:border-primary transition-all cursor-pointer" onClick={() => { setEventFilter({ attention: 'needs_attention', entity: 'all' }); setActiveTab('manage-events'); }}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-red-500/10 rounded-lg text-red-500">
+                <AlertCircle size={16} />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-red-500/50">Action Required</span>
+              <h3 className="text-sm font-bold text-white">Needs Attention</h3>
             </div>
-            <h3 className="text-xl font-bold mb-2 text-white">Attention Required</h3>
-            <p className="text-neutral-400 text-sm mb-6">You have events that need details or confirmation before they can be published.</p>
-            <div className="flex items-center gap-2 text-red-500 text-xs font-bold uppercase tracking-widest group-hover:gap-3 transition-all">
-              Review Now <ArrowRight size={14} />
+            <p className="text-neutral-400 text-xs mb-3">Events needing action.</p>
+            <div className="flex items-center justify-between">
+              <div className="text-primary text-[10px] font-bold uppercase tracking-widest">Review Now</div>
+              <ChevronRight size={16} className="text-primary" />
             </div>
           </Card>
         );
       case 'open_slots':
         return (
-          <Card key={cardId} className="bg-neutral-800/50 border-neutral-700 p-6 group hover:bg-neutral-800 transition-all cursor-pointer" onClick={() => setActiveTab('manage-events')}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-cyan-400/10 rounded-2xl text-cyan-400">
-                <Plus size={24} />
+          <Card key={cardId} className="bg-neutral-900 border-neutral-800 p-4 group hover:border-primary transition-all cursor-pointer" onClick={() => { setEventFilter({ attention: 'open_slots', entity: 'all' }); setActiveTab('manage-events'); }}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400">
+                <Plus size={16} />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-neutral-600">Inventory</span>
+              <h3 className="text-sm font-bold text-white">Open Dates</h3>
             </div>
-            <h3 className="text-xl font-bold mb-2 text-white">Open Slots</h3>
-            <p className="text-neutral-400 text-sm mb-6">You have upcoming dates with no bands booked yet. Fill your calendar!</p>
-            <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-widest group-hover:gap-3 transition-all">
-              Find Bands <ArrowRight size={14} />
+            <p className="text-neutral-400 text-xs mb-3">Dates without a band.</p>
+            <div className="flex items-center justify-between">
+              <div className="text-primary text-[10px] font-bold uppercase tracking-widest">Find Bands</div>
+              <ChevronRight size={16} className="text-primary" />
             </div>
           </Card>
         );
       case 'unconfirmed_acts':
         return (
-          <Card key={cardId} className="bg-neutral-800/50 border-neutral-700 p-6 group hover:bg-neutral-800 transition-all cursor-pointer" onClick={() => setActiveTab('manage-events')}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-neutral-800 rounded-2xl text-neutral-400">
-                <Clock size={24} />
+          <Card key={cardId} className="bg-neutral-900 border-neutral-800 p-4 group hover:border-primary transition-all cursor-pointer" onClick={() => { setEventFilter({ attention: 'unconfirmed_acts', entity: 'all' }); setActiveTab('manage-events'); }}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-neutral-800 rounded-lg text-neutral-400">
+                <Clock size={16} />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-neutral-600">Pending</span>
+              <h3 className="text-sm font-bold text-white">Pending Acts</h3>
             </div>
-            <h3 className="text-xl font-bold mb-2 text-white">Unconfirmed Acts</h3>
-            <p className="text-neutral-400 text-sm mb-6">Bands are waiting for your confirmation. Don't let them hang!</p>
-            <div className="flex items-center gap-2 text-neutral-400 text-xs font-bold uppercase tracking-widest group-hover:gap-3 transition-all">
-              Manage Acts <ArrowRight size={14} />
+            <p className="text-neutral-400 text-xs mb-3">Bands yet to confirm.</p>
+            <div className="flex items-center justify-between">
+              <div className="text-primary text-[10px] font-bold uppercase tracking-widest">Manage Acts</div>
+              <ChevronRight size={16} className="text-primary" />
             </div>
           </Card>
         );
       case 'confirmed_events':
         return (
-          <Card key={cardId} className="bg-neutral-800/50 border-neutral-700 p-6 group hover:bg-neutral-800 transition-all cursor-pointer" onClick={() => setActiveTab('events')}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-neutral-800 rounded-2xl text-neutral-400">
-                <CheckCircle size={24} />
+          <Card key={cardId} className="bg-neutral-900 border-neutral-800 p-4 group hover:border-primary transition-all cursor-pointer" onClick={() => { setEventFilter({ attention: 'confirmed_events', entity: 'all' }); setActiveTab('manage-events'); }}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-neutral-800 rounded-lg text-neutral-400">
+                <CheckCircle size={16} />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-neutral-600">Success</span>
+              <h3 className="text-sm font-bold text-white">Confirmed</h3>
             </div>
-            <h3 className="text-xl font-bold mb-2 text-white">Confirmed Events</h3>
-            <p className="text-neutral-400 text-sm mb-6">Your upcoming calendar is looking solid. Great work!</p>
-            <div className="flex items-center gap-2 text-neutral-400 text-xs font-bold uppercase tracking-widest group-hover:gap-3 transition-all">
-              View Calendar <ArrowRight size={14} />
+            <p className="text-neutral-400 text-xs mb-3">Fully set events.</p>
+            <div className="flex items-center justify-between">
+              <div className="text-primary text-[10px] font-bold uppercase tracking-widest">View Calendar</div>
+              <ChevronRight size={16} className="text-primary" />
             </div>
           </Card>
         );
@@ -97,7 +97,7 @@ export function DashboardView() {
   };
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       <RolePersonalizedHeader pageId="dashboard" />
 
       {/* Primary CTAs */}
@@ -107,44 +107,29 @@ export function DashboardView() {
             <Button
               key={index}
               onClick={() => setActiveTab(cta.tab)}
-              className="px-8 py-4 font-black uppercase tracking-widest rounded-2xl transition-all shadow-xl flex items-center gap-3 group"
+              className="px-6 py-3 font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center gap-2 group"
             >
               {cta.label}
-              <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </Button>
           ))}
         </div>
       )}
 
       {/* Dashboard Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {roleData.default_dashboard_cards.map(cardId => renderCard(cardId))}
       </div>
 
-      {/* Feature Priorities / Goals */}
-      <div className="bg-neutral-900/30 border border-neutral-800/50 rounded-[3rem] p-12">
-        <div className="max-w-3xl">
-          <h2 className="text-2xl font-black uppercase tracking-tighter mb-6 flex items-center gap-3">
-            <LayoutDashboard className="text-cyan-400" />
-            Your {roleData.name} Focus
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-            <div>
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 mb-4">Primary Goal</h4>
-              <p className="text-xl font-bold text-neutral-200">{roleData.primary_goal}</p>
-            </div>
-            <div>
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 mb-4">Feature Priorities</h4>
-              <ul className="space-y-2">
-                {roleData.feature_priorities.map((feature, i) => (
-                  <li key={i} className="flex items-center gap-2 text-neutral-400 text-sm">
-                    <div className="w-1.5 h-1.5 rounded-full bg-red-600" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+      {/* Next Best Actions */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
+        <h3 className="text-sm font-bold text-white mb-4">Recommended Next Actions</h3>
+        <div className="space-y-3">
+          {roleData.feature_priorities.slice(0, 3).map((action, i) => (
+            <button key={i} className="w-full flex items-center justify-between p-3 bg-neutral-800/50 rounded-xl hover:bg-neutral-800 transition-all text-sm text-neutral-300">
+              <span>{action}</span>
+              <ChevronRight size={16} />
+            </button>
+          ))}
         </div>
       </div>
     </div>

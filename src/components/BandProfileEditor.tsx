@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
+import { useNavigationContext } from '../context/NavigationContext';
 import { Band } from '../types';
 import { Save, Loader2, Trash2, Plus, Video, Eye, Image as ImageIcon, MapPin, User, Mail, Phone, Globe, Linkedin, Youtube, Instagram, Facebook, Twitter, Music } from 'lucide-react';
 import { US_STATES, CA_PROVINCES, AddressParts, formatAddress, parseAddress, validateZipForState } from '../lib/geo';
@@ -22,7 +23,10 @@ interface BandProfileEditorProps {
 }
 
 export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, onDirtyChange, onSaveSuccess }) => {
-  const { user, profile } = useAuth();
+  const { user, profile, isSuperAdmin } = useAuth();
+  const { addRecentRecord } = useNavigationContext();
+  const [managers, setManagers] = useState<{id: string, display_name: string, login_email: string}[]>([]);
+  const [loadingManagers, setLoadingManagers] = useState(false);
   const [band, setBand] = useState<Partial<Band>>({
     name: '',
     description: '',
@@ -82,6 +86,39 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
   useEffect(() => {
     fetchBand();
   }, [bandId, user?.id]);
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      fetchManagers();
+    }
+  }, [isSuperAdmin]);
+
+  async function fetchManagers() {
+    setLoadingManagers(true);
+    try {
+      const [profilesRes, peopleRes] = await Promise.all([
+        supabase.from('profiles').select('id, email, first_name, last_name'),
+        supabase.from('people').select('id, user_id, first_name, last_name')
+      ]);
+
+      if (profilesRes.data && peopleRes.data) {
+        const managers = profilesRes.data.map(p => {
+          const person = peopleRes.data.find(pe => pe.user_id === p.id);
+          const display_name = (person?.first_name || person?.last_name)
+            ? `${person.first_name || ''} ${person.last_name || ''}`.trim()
+            : (p.first_name || p.last_name)
+            ? `${p.first_name || ''} ${p.last_name || ''}`.trim()
+            : p.email;
+          return { id: p.id, display_name, login_email: p.email };
+        });
+        setManagers(managers);
+      }
+    } catch (e) {
+      console.error('Error fetching managers:', e);
+    } finally {
+      setLoadingManagers(false);
+    }
+  }
 
   async function fetchBand() {
     try {
@@ -167,6 +204,12 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
         };
         setBand(cleanedData);
         setInitialBand(cleanedData);
+        addRecentRecord({
+          id: cleanedData.id,
+          type: 'band',
+          name: cleanedData.name,
+          timestamp: Date.now()
+        });
         setAddressParts({
           street: data.street || '',
           city: data.city || '',
@@ -239,7 +282,7 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
           ...cleanBand,
           ...addressParts,
           address: formatAddress(addressParts),
-          manager_id: band.manager_id || user?.id, // Preserve existing manager or set to current
+          manager_id: band.manager_id || null, // Preserve existing manager or leave null
           person_id: band.person_id || personData?.id, // Link to person record if available
           updated_at: new Date().toISOString(),
           updated_by: user?.id
@@ -329,6 +372,21 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
             value={band.name || ''}
             onChange={(e) => setBand({ ...band, name: e.target.value })}
           />
+          {isSuperAdmin && (
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Band Manager</label>
+              <select
+                value={band.manager_id || 'unassigned'}
+                onChange={(e) => setBand({ ...band, manager_id: e.target.value === 'unassigned' ? null : e.target.value })}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2 text-white"
+              >
+                <option value="unassigned">Unassigned</option>
+                {managers.map(m => (
+                  <option key={m.id} value={m.id}>{m.display_name} ({m.login_email})</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="space-y-4 md:col-span-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Address Information</label>

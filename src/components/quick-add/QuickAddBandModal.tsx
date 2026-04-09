@@ -3,10 +3,13 @@ import { supabase } from '../../lib/supabase';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
-import { Loader2, X, Plus, Search, Check } from 'lucide-react';
+import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Scratchpad } from './Scratchpad';
 import { useNavigationContext } from '../../context/NavigationContext';
+import { useAuth } from '../../AuthContext';
+import { US_STATES, CA_PROVINCES } from '../../lib/geo';
+import { theme } from '../../lib/theme';
 
 interface QuickAddBandModalProps {
   isOpen: boolean;
@@ -15,51 +18,42 @@ interface QuickAddBandModalProps {
 }
 
 export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickAddBandModalProps) {
+  const { user } = useAuth();
   const { setActiveTab, setSelectedBandId } = useNavigationContext();
   const [name, setName] = useState('');
+  const [managerName, setManagerName] = useState('');
   const [description, setDescription] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
-  const [managerSearch, setManagerSearch] = useState('');
-  const [managers, setManagers] = useState<any[]>([]);
-  const [selectedManager, setSelectedManager] = useState<any>(null);
-  const [isAddingManager, setIsAddingManager] = useState(false);
-  const [newManager, setNewManager] = useState({ first_name: '', last_name: '', email: '' });
+  const [country, setCountry] = useState<'US' | 'CA'>('US');
   const [saving, setSaving] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      fetchManagers();
-    }
-  }, [isOpen]);
-
-  const fetchManagers = async () => {
-    const { data } = await supabase.from('people').select('id, first_name, last_name, email');
-    if (data) setManagers(data);
-  };
-
-  const filteredManagers = managers.filter(m => 
-    `${m.first_name} ${m.last_name}`.toLowerCase().includes(managerSearch.toLowerCase())
-  );
 
   const checkDuplicate = async (bandName: string) => {
     const { data } = await supabase.from('bands').select('name').ilike('name', bandName).maybeSingle();
     setDuplicateWarning(!!data);
   };
 
-  const handleSave = async (e: React.FormEvent, action: 'close' | 'another' | 'open') => {
-    e.preventDefault();
+  const handleSave = async (e: React.FormEvent | null, action: 'close' | 'another' | 'open') => {
+    if (e) e.preventDefault();
     setSaving(true);
     
+    // Simple parsing: split on first space
+    const [first, ...rest] = managerName.split(' ');
+    const last = rest.join(' ');
+
     try {
       const { error, data } = await supabase.from('bands').insert({
         name,
+        manager_first_name: first || '',
+        manager_last_name: last || '',
         description,
         city,
         state,
-        manager_id: selectedManager?.id || null,
+        country,
+        // manager_id: user?.id, // Removed default manager_id
         is_confirmed: false,
+        is_published: false,
       }).select().single();
 
       if (error) throw error;
@@ -70,11 +64,11 @@ export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickA
         onClose();
       } else if (action === 'another') {
         setName('');
+        setManagerName('');
         setDescription('');
         setCity('');
         setState('');
-        setSelectedManager(null);
-        setManagerSearch('');
+        setCountry('US');
       } else if (action === 'open') {
         setSelectedBandId(data.id);
         setActiveTab('my-band');
@@ -87,84 +81,74 @@ export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickA
     }
   };
 
-  const handleCreateManager = async () => {
-    const { data, error } = await supabase.from('people').insert(newManager).select().single();
-    if (error) {
-      toast.error('Failed to create manager');
-      return;
-    }
-    setSelectedManager(data);
-    setIsAddingManager(false);
-    setNewManager({ first_name: '', last_name: '', email: '' });
-  };
-
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <Card className="w-full max-w-lg p-8 shadow-2xl">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold">Quick Add Band</h3>
-          <button onClick={onClose} className="p-2 text-neutral-400 hover:text-cyan-400 rounded-full">
-            <X size={20} />
+      <Card className="w-full max-w-md flex flex-col shadow-2xl p-0 overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+          <h3 className="text-lg font-bold">Quick Add Band</h3>
+          <button onClick={onClose} className="p-1 text-neutral-400 hover:text-cyan-400 rounded-full">
+            <X size={18} />
           </button>
         </div>
-        <form className="space-y-4">
-          <Input label="Band Name" required value={name} onChange={(e) => { setName(e.target.value); checkDuplicate(e.target.value); }} />
-          {duplicateWarning && <p className="text-yellow-500 text-sm">Warning: A band with this name already exists.</p>}
-          
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Manager</label>
-            {selectedManager ? (
-              <div className="flex items-center justify-between p-3 bg-neutral-800 rounded-xl">
-                <span>{selectedManager.first_name} {selectedManager.last_name}</span>
-                <button onClick={() => setSelectedManager(null)}><X size={16} /></button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 text-neutral-500" size={18} />
-                  <Input value={managerSearch} onChange={(e) => setManagerSearch(e.target.value)} placeholder="Search managers..." className="pl-10" />
+        
+        <div className="p-4 overflow-y-auto max-h-[70vh]">
+          <form className="space-y-3">
+            <Input label="Band Name" required value={name} onChange={(e) => { setName(e.target.value); checkDuplicate(e.target.value); }} className="py-1.5 px-3" />
+            {duplicateWarning && <p className="text-yellow-500 text-[10px]">Warning: A band with this name already exists.</p>}
+            
+            <Input label="Manager Name" value={managerName} onChange={(e) => setManagerName(e.target.value)} className="py-1.5 px-3" />
+            
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Location</label>
+                <div className="flex bg-neutral-800 p-0.5 rounded-lg border border-neutral-700">
+                  <Button type="button" variant={country === 'US' ? 'primary' : 'secondary'} size="sm" className="h-6 text-[10px] px-2" onClick={() => { setCountry('US'); setState(''); }}>USA</Button>
+                  <Button type="button" variant={country === 'CA' ? 'primary' : 'secondary'} size="sm" className="h-6 text-[10px] px-2" onClick={() => { setCountry('CA'); setState(''); }}>CANADA</Button>
                 </div>
-                {managerSearch && (
-                  <div className="bg-neutral-800 rounded-xl p-2 max-h-40 overflow-y-auto">
-                    {filteredManagers.map(m => (
-                      <button key={m.id} className="block w-full text-left p-2 hover:bg-neutral-700 rounded" onClick={() => { setSelectedManager(m); setManagerSearch(''); }}>
-                        {m.first_name} {m.last_name}
-                      </button>
-                    ))}
-                    <button className="block w-full text-left p-2 text-cyan-400 hover:bg-neutral-700 rounded" onClick={() => setIsAddingManager(true)}>
-                      <Plus size={16} className="inline mr-2" /> Add New Manager
-                    </button>
-                  </div>
-                )}
               </div>
-            )}
-          </div>
-
-          {isAddingManager && (
-            <div className="p-4 bg-neutral-800 rounded-xl space-y-2">
-              <Input label="First Name" value={newManager.first_name} onChange={(e) => setNewManager({...newManager, first_name: e.target.value})} />
-              <Input label="Last Name" value={newManager.last_name} onChange={(e) => setNewManager({...newManager, last_name: e.target.value})} />
-              <Input label="Email" value={newManager.email} onChange={(e) => setNewManager({...newManager, email: e.target.value})} />
-              <Button type="button" onClick={handleCreateManager}>Create Manager</Button>
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="City" value={city} onChange={(e) => setCity(e.target.value)} className="py-1.5 px-3" />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">State/Province</label>
+                  <select
+                    value={state}
+                    onChange={(e) => setState(e.target.value)}
+                    className={theme.input + " py-1.5 px-2 text-sm"}
+                  >
+                    <option value="">Select...</option>
+                    {(country === 'US' ? US_STATES : CA_PROVINCES).map((item) => (
+                      <option key={item.code} value={item.code}>{item.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
-          )}
 
-          <Input label="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
-          <Scratchpad />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="City" value={city} onChange={(e) => setCity(e.target.value)} />
-            <Input label="State" value={state} onChange={(e) => setState(e.target.value)} />
-          </div>
-          
-          <div className="pt-6 flex flex-wrap gap-4">
-            <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button type="button" onClick={(e) => handleSave(e, 'close')} disabled={saving}>Save & Close</Button>
-            <Button type="button" onClick={(e) => handleSave(e, 'another')} disabled={saving}>Save & Add Another</Button>
-            <Button type="button" onClick={(e) => handleSave(e, 'open')} disabled={saving}>Save & Open</Button>
-          </div>
-        </form>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Description</label>
+              <textarea 
+                value={description} 
+                onChange={(e) => setDescription(e.target.value)} 
+                className="w-full bg-neutral-950 border border-neutral-700 rounded-xl py-2 px-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all placeholder:text-neutral-600 text-sm"
+                rows={2}
+              />
+            </div>
+            
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Scratchpad</label>
+              <Scratchpad />
+            </div>
+          </form>
+        </div>
+
+        <div className="p-4 border-t border-neutral-800 flex flex-wrap gap-2 justify-end">
+          <Button type="button" variant="secondary" onClick={onClose} size="sm">Cancel</Button>
+          <Button type="button" onClick={(e) => handleSave(e, 'close')} disabled={saving} size="sm">Save & Close</Button>
+          <Button type="button" onClick={(e) => handleSave(e, 'another')} disabled={saving} size="sm">Save & Add Another</Button>
+          <Button type="button" onClick={(e) => handleSave(e, 'open')} disabled={saving} size="sm">Save & Open</Button>
+        </div>
       </Card>
     </div>
   );

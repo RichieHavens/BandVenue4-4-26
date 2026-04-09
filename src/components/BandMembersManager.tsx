@@ -47,6 +47,7 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
 
   async function handleSaveMember(e: React.FormEvent) {
     e.preventDefault();
+    console.log('handleSaveMember: editingMember', editingMember);
     if (!editingMember?.email || !editingMember?.first_name || !editingMember?.last_name) {
       setMessage({ type: 'error', text: 'Please fill in all required fields.' });
       return;
@@ -77,6 +78,7 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
           }
         } else {
           // Create new person
+          console.log('Creating new person:', editingMember.email);
           const { data: newPerson, error: createError } = await supabase
             .from('people')
             .insert({
@@ -84,13 +86,17 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
               last_name: editingMember.last_name,
               email: editingMember.email.toLowerCase().trim(),
               roles: ['musician'],
-              band_ids: [bandId],
-              venue_ids: []
+              venue_ids: [],
+              user_id: null
             })
             .select()
             .single();
 
-          if (createError) throw createError;
+          if (createError) {
+            console.error('Error creating person:', createError);
+            throw createError;
+          }
+          console.log('New person created:', newPerson);
           if (newPerson) personId = newPerson.id;
         }
       }

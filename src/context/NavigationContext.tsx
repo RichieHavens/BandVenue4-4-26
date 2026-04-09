@@ -4,6 +4,13 @@ import {
   ShieldCheck, UserCircle, Calendar, LayoutDashboard, MapPin, Music, Heart, Globe, Users
 } from 'lucide-react';
 
+export interface RecentRecord {
+  id: string;
+  type: 'band' | 'venue' | 'person' | 'event';
+  name: string;
+  timestamp: number;
+}
+
 interface NavigationContextType {
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -19,6 +26,14 @@ interface NavigationContextType {
   setSelectedBandId: (id: string | null) => void;
   selectedEventId: string | null;
   setSelectedEventId: (id: string | null) => void;
+  selectedVenueId: string | null;
+  setSelectedVenueId: (id: string | null) => void;
+  selectedPersonId: string | null;
+  setSelectedPersonId: (id: string | null) => void;
+  eventFilter: { attention: string; entity: string } | null;
+  setEventFilter: (filter: { attention: string; entity: string } | null) => void;
+  recentRecords: RecentRecord[];
+  addRecentRecord: (record: RecentRecord) => void;
 }
 
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
@@ -30,12 +45,52 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
     if (saved) return saved;
     return 'events';
   });
-  const [selectedBandId, setSelectedBandId] = React.useState<string | null>(null);
-  const [selectedEventId, setSelectedEventId] = React.useState<string | null>(null);
+  const [selectedBandId, setSelectedBandIdState] = React.useState<string | null>(() => localStorage.getItem('bandvenue_selected_band_id'));
+  const [selectedEventId, setSelectedEventIdState] = React.useState<string | null>(() => localStorage.getItem('bandvenue_selected_event_id'));
+  const [selectedVenueId, setSelectedVenueIdState] = React.useState<string | null>(() => localStorage.getItem('bandvenue_selected_venue_id'));
+  const [selectedPersonId, setSelectedPersonIdState] = React.useState<string | null>(() => localStorage.getItem('bandvenue_selected_person_id'));
+  const [eventFilter, setEventFilter] = React.useState<{ attention: string; entity: string } | null>(null);
+  const [recentRecords, setRecentRecords] = React.useState<RecentRecord[]>(() => {
+    const saved = localStorage.getItem('bandvenue_recent_records');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const addRecentRecord = (record: RecentRecord) => {
+    setRecentRecords(prev => {
+      const filtered = prev.filter(r => r.id !== record.id);
+      const updated = [record, ...filtered].slice(0, 25);
+      localStorage.setItem('bandvenue_recent_records', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   const setActiveTab = (tab: string) => {
     setActiveTabState(tab);
     localStorage.setItem('bandvenue_active_tab', tab);
+  };
+
+  const setSelectedBandId = (id: string | null) => {
+    setSelectedBandIdState(id);
+    if (id) localStorage.setItem('bandvenue_selected_band_id', id);
+    else localStorage.removeItem('bandvenue_selected_band_id');
+  };
+
+  const setSelectedEventId = (id: string | null) => {
+    setSelectedEventIdState(id);
+    if (id) localStorage.setItem('bandvenue_selected_event_id', id);
+    else localStorage.removeItem('bandvenue_selected_event_id');
+  };
+
+  const setSelectedVenueId = (id: string | null) => {
+    setSelectedVenueIdState(id);
+    if (id) localStorage.setItem('bandvenue_selected_venue_id', id);
+    else localStorage.removeItem('bandvenue_selected_venue_id');
+  };
+
+  const setSelectedPersonId = (id: string | null) => {
+    setSelectedPersonIdState(id);
+    if (id) localStorage.setItem('bandvenue_selected_person_id', id);
+    else localStorage.removeItem('bandvenue_selected_person_id');
   };
 
   // Sync active tab with login state if no tab is saved
@@ -43,8 +98,8 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
     if (!loading && user && activeRole) {
       const savedTab = localStorage.getItem('bandvenue_active_tab');
       
-      // Only force a role-based tab if we don't have a saved tab
-      if (!savedTab) {
+      // Force role-based tab if we are on the placeholder dashboard or default events tab
+      if (!savedTab || activeTab === 'events' || activeTab === 'dashboard' || savedTab === 'dashboard') {
         if (activeRole === 'venue_manager') {
           setActiveTab('venue-manager');
         } else if (activeRole === 'band_manager') {
@@ -56,7 +111,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
         }
       }
     }
-  }, [user, loading, activeRole]);
+  }, [user, loading, activeRole, activeTab]);
   const [unsavedChanges, setUnsavedChanges] = React.useState(false);
   const [pendingTab, setPendingTab] = React.useState<string | null>(null);
   
@@ -84,7 +139,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       tabs.push({ id: 'band-manager', label: 'Band Manager', icon: Music });
       tabs.push({ id: 'super-admin', label: 'Super Admin', icon: ShieldCheck });
     } else if (activeRole === 'venue_manager') {
-      tabs.push({ id: 'venue-manager', label: 'Dashboard', icon: LayoutDashboard });
+      tabs.push({ id: 'venue-manager', label: 'Venue Manager', icon: LayoutDashboard });
     } else if (activeRole === 'band_manager') {
       tabs.push({ id: 'band-manager', label: 'Dashboard', icon: LayoutDashboard });
     } else {
@@ -150,7 +205,15 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       selectedBandId,
       setSelectedBandId,
       selectedEventId,
-      setSelectedEventId
+      setSelectedEventId,
+      selectedVenueId,
+      setSelectedVenueId,
+      selectedPersonId,
+      setSelectedPersonId,
+      eventFilter,
+      setEventFilter,
+      recentRecords,
+      addRecentRecord
     }}>
       {children}
     </NavigationContext.Provider>

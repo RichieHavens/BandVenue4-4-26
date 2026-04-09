@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
+import { useNavigationContext } from '../context/NavigationContext';
 import { AppEvent, Act, Band, Venue } from '../types';
 import { Plus, Calendar, Clock, MapPin, Music, Trash2, Check, X, Loader2, AlertCircle, Edit2, Copy, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -8,22 +9,31 @@ import EventEditor from './EventEditor';
 import { formatDate, formatTime } from '../lib/utils';
 import { EventCard } from './ui/EventCard';
 import { Button } from './ui/Button';
+import { isActionRequired, isUnconfirmedAct, isOpenSlot, isConfirmedEvent } from '../lib/eventFilters';
 
 interface EventManagerProps {
   bandId?: string;
   venueId?: string;
+  initialAttentionFilter?: string;
+  initialEntityFilter?: string;
 }
 
-export default function EventManager({ bandId, venueId }: EventManagerProps = {}) {
+export default function EventManager({ bandId, venueId, initialAttentionFilter = 'all', initialEntityFilter = 'all' }: EventManagerProps = {}) {
   const { user, profile } = useAuth();
+  const { setEventFilter } = useNavigationContext();
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<AppEvent | undefined>(undefined);
+  const [editorIntent, setEditorIntent] = useState<string | undefined>(undefined);
   const [showPastEvents, setShowPastEvents] = useState(false);
-  const [attentionFilter, setAttentionFilter] = useState<string>('all');
-  const [entityFilter, setEntityFilter] = useState<string>('all');
+  const [attentionFilter, setAttentionFilter] = useState<string>(initialAttentionFilter);
+  const [entityFilter, setEntityFilter] = useState<string>(initialEntityFilter);
   const [isCopying, setIsCopying] = useState(false);
+
+  useEffect(() => {
+    setEventFilter(null);
+  }, []);
 
   useEffect(() => {
     if (user?.id) {
@@ -88,17 +98,13 @@ export default function EventManager({ bandId, venueId }: EventManagerProps = {}
 
     // Attention filter
     if (attentionFilter !== 'all') {
-      const isUnpublished = !event.is_published;
-      const isUnconfirmedVenue = !event.venue_confirmed;
-      const isUnconfirmedBand = !event.band_confirmed;
-      const isMissingDate = !event.start_time;
-      const needsAnyAttention = isUnpublished || isUnconfirmedVenue || isUnconfirmedBand || isMissingDate;
-
-      if (attentionFilter === 'needs_attention' && !needsAnyAttention) return false;
-      if (attentionFilter === 'unpublished' && !isUnpublished) return false;
-      if (attentionFilter === 'unconfirmed_venue' && !isUnconfirmedVenue) return false;
-      if (attentionFilter === 'unconfirmed_band' && !isUnconfirmedBand) return false;
-      if (attentionFilter === 'missing_date' && !isMissingDate) return false;
+      if (attentionFilter === 'needs_attention' && !isActionRequired(event)) return false;
+      if (attentionFilter === 'open_slots' && !isOpenSlot(event)) return false;
+      if (attentionFilter === 'unconfirmed_acts' && !isUnconfirmedAct(event)) return false;
+      if (attentionFilter === 'confirmed_events' && !isConfirmedEvent(event)) return false;
+      if (attentionFilter === 'unpublished' && event.is_published) return false;
+      if (attentionFilter === 'unconfirmed_venue' && event.venue_confirmed) return false;
+      if (attentionFilter === 'missing_date' && event.start_time) return false;
     }
 
     // Entity filter (Venue or Band)
@@ -140,8 +146,31 @@ export default function EventManager({ bandId, venueId }: EventManagerProps = {}
     setShowEditor(true);
   };
 
+  const getFilterLabel = () => {
+    if (attentionFilter === 'needs_attention') return 'Attention Required';
+    if (attentionFilter === 'open_slots') return 'Open Slots';
+    if (attentionFilter === 'unconfirmed_acts') return 'Unconfirmed Acts';
+    if (attentionFilter === 'confirmed_events') return 'Confirmed Events';
+    if (attentionFilter === 'unpublished') return 'Unpublished';
+    if (attentionFilter === 'unconfirmed_venue') return 'Unconfirmed Venue';
+    if (attentionFilter === 'missing_date') return 'Missing Date';
+    if (entityFilter !== 'all') return 'Filtered by Entity';
+    return 'Filtered View';
+  };
+
+  const clearFilters = () => {
+    setAttentionFilter('all');
+    setEntityFilter('all');
+  };
+
   return (
     <div className="space-y-8">
+      {(attentionFilter !== 'all' || entityFilter !== 'all') && (
+        <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2 text-xs text-neutral-400">
+          <span>Showing: <span className="font-bold text-white">{getFilterLabel()}</span></span>
+          <button onClick={clearFilters} className="text-primary hover:text-primary/80 font-bold ml-2">Clear</button>
+        </div>
+      )}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-4xl font-bold tracking-tight">Event Management</h2>
         <div className="flex flex-wrap items-center gap-2">
@@ -153,9 +182,11 @@ export default function EventManager({ bandId, venueId }: EventManagerProps = {}
           >
             <option value="all">All Events</option>
             <option value="needs_attention">Needs Attention</option>
+            <option value="open_slots">Open Slots</option>
+            <option value="unconfirmed_acts">Unconfirmed Acts</option>
+            <option value="confirmed_events">Confirmed Events</option>
             <option value="unpublished">Unpublished</option>
             <option value="unconfirmed_venue">Unconfirmed Venue</option>
-            <option value="unconfirmed_band">Unconfirmed Band</option>
             <option value="missing_date">Missing Date</option>
           </select>
 
@@ -213,9 +244,10 @@ export default function EventManager({ bandId, venueId }: EventManagerProps = {}
                 key={`event-${event.id || index}`}
                 event={event}
                 onCopy={() => handleCopyAsNew(event)}
-                onEdit={() => {
+                onEdit={(intent) => {
                   setSelectedEvent(event);
                   setIsCopying(false);
+                  setEditorIntent(intent);
                   setShowEditor(true);
                 }}
               />
@@ -234,6 +266,7 @@ export default function EventManager({ bandId, venueId }: EventManagerProps = {}
         <EventEditor 
           event={selectedEvent} 
           isCopying={isCopying}
+          intent={editorIntent}
           onClose={() => setShowEditor(false)} 
           onSave={fetchEvents} 
         />

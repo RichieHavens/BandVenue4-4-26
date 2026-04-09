@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
+import { useNavigationContext } from '../context/NavigationContext';
 import { Venue, AppEvent } from '../types';
 import { Save, Image as ImageIcon, Loader2, Plus, Trash2, MapPin, Calendar, Clock, Eye } from 'lucide-react';
 import { Button } from './ui/Button';
@@ -16,6 +17,7 @@ import { handleSupabaseError, OperationType } from '../lib/error-handler';
 
 export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChange, onSaveSuccess }: { venueId?: string, hideDropdown?: boolean, onDirtyChange?: (dirty: boolean) => void, onSaveSuccess?: () => void }) {
   const { user, profile } = useAuth();
+  const { addRecentRecord } = useNavigationContext();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(venueId || null);
   const [venue, setVenue] = useState<Partial<Venue>>({
@@ -213,6 +215,12 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
         };
         setVenue(cleanedData);
         setInitialVenue(cleanedData);
+        addRecentRecord({
+          id: cleanedData.id,
+          type: 'venue',
+          name: cleanedData.name,
+          timestamp: Date.now()
+        });
         setAddressParts({
           street: data.street || '',
           city: data.city || '',
@@ -321,7 +329,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
           address: formatAddress(addressParts),
           id: selectedVenueId || undefined,
           website: finalWebsite,
-          manager_id: venue.manager_id || user?.id, // Preserve existing manager or set to current
+          manager_id: venue.manager_id || null, // Preserve existing manager or leave null
           updated_at: new Date().toISOString(),
           updated_by: user?.id
         })

@@ -9,7 +9,7 @@ import { AppEvent } from '../../types';
 interface EventCardProps {
   event: AppEvent;
   onCopy: () => void;
-  onEdit: () => void;
+  onEdit: (intent?: string) => void;
 }
 
 export function EventCard({ event, onCopy, onEdit }: EventCardProps) {
@@ -19,26 +19,40 @@ export function EventCard({ event, onCopy, onEdit }: EventCardProps) {
   const isBandConfirmed = event.band_confirmed;
   const confirmationStatus = event.band_confirmation_status;
   const hasDate = !!event.start_time;
+  const hasBand = event.acts && event.acts.length > 0 && event.acts.some((a: any) => a.band_id);
 
   let status: 'Draft' | 'Needs Band Confirmation' | 'Needs Promo Assets' | 'Almost Ready' | 'Ready' | 'Published' | 'Canceled' | 'Archived' = 'Draft';
   if (isPublished) status = 'Published';
-  else if (isVenueConfirmed && isBandConfirmed && hasDate) status = 'Ready';
-  else if (isVenueConfirmed && isBandConfirmed) status = 'Almost Ready';
-  else if (!isBandConfirmed) status = 'Needs Band Confirmation';
+  else if (isVenueConfirmed && isBandConfirmed && hasDate && event.hero_url) status = 'Ready';
+  else if (isVenueConfirmed && isBandConfirmed && hasDate) status = 'Almost Ready';
+  else if (!isBandConfirmed && hasBand) status = 'Needs Band Confirmation';
   else status = 'Draft';
 
   let blocker = '';
   let owner = '';
+  let primaryActionLabel = 'Edit Event';
+  let intent = 'editEvent';
 
   if (!isVenueConfirmed) {
     blocker = 'Venue Confirmation';
     owner = 'Venue';
-  } else if (!isBandConfirmed) {
+    primaryActionLabel = 'Review Venue';
+    intent = 'reviewVenue';
+  } else if (!isBandConfirmed && hasBand) {
     blocker = 'Band Confirmation';
     owner = 'Band';
+    primaryActionLabel = 'Review Band';
+    intent = 'reviewBand';
   } else if (!hasDate) {
     blocker = 'Date/Time';
     owner = 'You';
+    primaryActionLabel = 'Edit Details';
+    intent = 'editDetails';
+  } else if (!event.hero_url) {
+    blocker = 'Promo Assets';
+    owner = 'You';
+    primaryActionLabel = 'Edit Promo';
+    intent = 'editPromo';
   }
 
   const daysUntil = event.start_time ? Math.ceil((new Date(event.start_time).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
@@ -96,7 +110,7 @@ export function EventCard({ event, onCopy, onEdit }: EventCardProps) {
       {/* Actions */}
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onCopy}><Copy size={16} className="mr-2" />Copy</Button>
-        <Button variant="ghost" size="sm" onClick={onEdit}><Edit2 size={16} className="mr-2" />Edit</Button>
+        <Button variant="primary" size="sm" onClick={() => onEdit(intent)}>{primaryActionLabel}</Button>
       </div>
     </Card>
   );

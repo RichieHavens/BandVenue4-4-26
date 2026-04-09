@@ -9,11 +9,13 @@ import { formatDate } from '../../lib/utils';
 
 interface BandConfirmationPanelProps {
   event: AppEvent;
+  intent?: string;
   onUpdate: () => void;
 }
 
-export function BandConfirmationPanel({ event, onUpdate }: BandConfirmationPanelProps) {
+export function BandConfirmationPanel({ event, intent, onUpdate }: BandConfirmationPanelProps) {
   const [loading, setLoading] = useState(false);
+  const isHighlighted = intent === 'reviewBand' || intent === 'reviewVenue';
 
   const sendRequest = async (isReminder: boolean) => {
     setLoading(true);
@@ -65,7 +67,7 @@ export function BandConfirmationPanel({ event, onUpdate }: BandConfirmationPanel
   };
 
   return (
-    <div className="bg-neutral-800/50 p-6 rounded-2xl border border-neutral-700 space-y-4">
+    <div className={`bg-neutral-800/50 p-6 rounded-2xl border ${intent === 'reviewBand' ? 'border-primary ring-1 ring-primary' : 'border-neutral-700'} space-y-4`}>
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-lg">Band Confirmation</h3>
         <StatusBadge status={event.band_confirmed ? 'Ready' : (event.band_confirmation_status === 'sent' ? 'Published' : 'Needs Band Confirmation')} />

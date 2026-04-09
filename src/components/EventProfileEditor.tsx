@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
+import { useNavigationContext } from '../context/NavigationContext';
 import { AppEvent } from '../types';
 import { Save, Loader2, Eye, Image as ImageIcon, Trash2, MapPin } from 'lucide-react';
 import ProfilePreviewModal from './ProfilePreviewModal';
@@ -12,6 +13,7 @@ import { useEventValidation } from '../lib/hooks/useEventValidation';
 
 export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSuccess }: { eventId: string, onDirtyChange?: (dirty: boolean) => void, onSaveSuccess?: () => void }) {
   const { user, profile } = useAuth();
+  const { addRecentRecord } = useNavigationContext();
   const isAdmin = profile?.roles.includes('admin');
   const [event, setEvent] = useState<Partial<AppEvent> | null>(null);
   const [initialEvent, setInitialEvent] = useState<Partial<AppEvent> | null>(null);
@@ -76,6 +78,12 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
       
       setEvent(eventWithDate);
       setInitialEvent(eventWithDate);
+      addRecentRecord({
+        id: eventWithDate.id,
+        type: 'event',
+        name: eventWithDate.name,
+        timestamp: Date.now()
+      });
       
       // Fetch all events for the venue to check for overlaps
       const { data: events } = await supabase

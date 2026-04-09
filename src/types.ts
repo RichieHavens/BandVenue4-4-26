@@ -11,6 +11,7 @@ export interface Profile {
   default_role?: UserRole;
   avatar_url?: string;
   created_at: string;
+  is_super_admin: boolean;
 }
 
 export interface RoleMaster {
@@ -87,6 +88,7 @@ export interface Person {
   created_at: string;
   updated_at?: string;
   updated_by?: string;
+  musician_profiles?: MusicianProfile;
   profiles?: {
     first_name: string;
     last_name: string;
@@ -214,6 +216,7 @@ export interface MusicianProfile {
   looking_for_bands: boolean;
   open_for_gigs: boolean;
   instruments: string[];
+  is_solo_act: boolean;
   created_at: string;
 }
 

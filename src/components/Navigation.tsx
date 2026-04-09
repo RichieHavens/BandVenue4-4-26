@@ -1,20 +1,21 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  LogOut, UserCircle, ChevronDown, Info, LayoutDashboard, ShieldCheck, CheckCircle, HardHat
+  LogOut, UserCircle, ChevronDown, Info, LayoutDashboard, ShieldCheck, CheckCircle, HardHat, Music
 } from 'lucide-react';
 import { useNavigationContext } from '../context/NavigationContext';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 
 export default function Navigation() {
-  const { user, profile, activeRole, setActiveRole, signOut } = useAuth();
+  const { user, profile, activeRole, setActiveRole, signOut, managedBands } = useAuth();
   const { 
     activeTab, 
     managementTabs, 
     discoveryTabs, 
     handleTabChange, 
-    setActiveTab 
+    setActiveTab,
+    setSelectedBandId
   } = useNavigationContext();
 
   const [isDashboardOpen, setIsDashboardOpen] = React.useState(false);
@@ -69,6 +70,29 @@ export default function Navigation() {
               )}
             </button>
           ))}
+          {managedBands.length > 0 && (
+            <button
+              onClick={() => {
+                if (managedBands.length === 1) {
+                  setSelectedBandId(managedBands[0].id);
+                  handleTabChange('my-band');
+                } else {
+                  handleTabChange('my-bands');
+                }
+              }}
+              className={cn(
+                "group relative flex flex-col md:flex-row items-center gap-0.5 md:gap-1.5 px-3 py-2 rounded-xl transition-all shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+                (activeTab === 'my-bands' || activeTab === 'my-band')
+                  ? 'text-white bg-neutral-800'
+                  : 'text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50'
+              )}
+            >
+              <Music size={18} className={cn("transition-colors duration-200", (activeTab === 'my-bands' || activeTab === 'my-band') ? 'text-cyan-400' : 'text-neutral-400 group-hover:text-cyan-400 group-focus:text-cyan-400')} />
+              <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider whitespace-nowrap">
+                {managedBands.length === 1 ? 'Manage Band' : 'My Bands'}
+              </span>
+            </button>
+          )}
           
           <button
             onClick={user ? () => handleTabChange('logout') : () => handleTabChange('login')}

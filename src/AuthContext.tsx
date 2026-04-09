@@ -9,6 +9,9 @@ interface AuthContextType {
   activeRole: UserRole | null;
   roleData: RoleMaster | null;
   loading: boolean;
+  isSuperAdmin: boolean;
+  managedBands: { id: string; name: string }[];
+  managedVenues: { id: string; name: string }[];
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   setProfile: (profile: Profile | null) => void;
@@ -23,6 +26,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [activeRole, setActiveRoleState] = useState<UserRole | null>(null);
   const [roleData, setRoleData] = useState<RoleMaster | null>(null);
   const [loading, setLoading] = useState(true);
+  const [managedBands, setManagedBands] = useState<{ id: string; name: string }[]>([]);
+  const [managedVenues, setManagedVenues] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    console.log('AuthContext: user changed', user);
+    if (user) {
+      fetchManagedBands();
+      fetchManagedVenues();
+    } else {
+      setManagedBands([]);
+      setManagedVenues([]);
+    }
+  }, [user]);
+
+  async function fetchManagedBands() {
+    console.log('AuthContext: Fetching managed bands for', user?.id);
+    try {
+      const { data, error } = await supabase
+        .from('bands')
+        .select('id, name')
+        .eq('manager_id', user?.id);
+      if (error) {
+        console.error('AuthContext: Error fetching managed bands:', error);
+        throw error;
+      }
+      console.log('AuthContext: Managed bands fetched successfully', data);
+      if (data) setManagedBands(data);
+    } catch (error) {
+      console.error('AuthContext: Error in fetchManagedBands:', error);
+    }
+  }
+
+  async function fetchManagedVenues() {
+    console.log('AuthContext: Fetching managed venues for', user?.id);
+    try {
+      const { data, error } = await supabase
+        .from('venues')
+        .select('id, name')
+        .eq('manager_id', user?.id);
+      if (error) {
+        console.error('AuthContext: Error fetching managed venues:', error);
+        throw error;
+      }
+      console.log('AuthContext: Managed venues fetched successfully', data);
+      if (data) setManagedVenues(data);
+    } catch (error) {
+      console.error('AuthContext: Error in fetchManagedVenues:', error);
+    }
+  }
 
   // Fetch role metadata when activeRole changes
   useEffect(() => {
@@ -103,6 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function fetchProfile(userId: string, userEmail?: string) {
     setLoading(true);
+    console.log('AuthContext: Fetching profile for', userId);
     try {
       // 1. Get the profile
       let { data: profileData, error: profileError } = await supabase
@@ -270,6 +323,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       activeRole, 
       roleData,
       loading, 
+      isSuperAdmin: profile?.is_super_admin || false,
+      managedBands,
+      managedVenues,
       signOut, 
       refreshProfile, 
       setProfile,

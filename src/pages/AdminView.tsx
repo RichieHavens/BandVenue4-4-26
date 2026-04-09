@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../AuthContext';
+import { useNavigationContext } from '../context/NavigationContext';
 import { supabase } from '../lib/supabase';
 import { Venue, Band, AppEvent } from '../types';
 import { 
@@ -22,7 +23,10 @@ import { formatDate, formatTime } from '../lib/utils';
 
 export function AdminView() {
   const { user, profile, activeRole, refreshProfile } = useAuth();
+  const { recentRecords, setSelectedBandId, setSelectedEventId, setSelectedVenueId, setSelectedPersonId } = useNavigationContext();
   const [activeSubTab, setActiveSubTab] = useState('venues');
+  const [isRecentOpen, setIsRecentOpen] = useState(false);
+  const recentRef = useRef<HTMLDivElement>(null);
   const [genres, setGenres] = useState<any[]>([]);
   const [loadingGenres, setLoadingGenres] = useState(false);
   const [isAddingGenre, setIsAddingGenre] = useState(false);
@@ -493,7 +497,7 @@ export function AdminView() {
       const { data: insertedVenues, error: vError } = await supabase
         .from('venues')
         .insert(venueNames.map((name, i) => ({
-          manager_id: user.id,
+          // manager_id: user.id,
           name: `Test Venue ${i + 1}: ${name}`,
           address: `${100 + i} Main St, Buffalo, NY`,
           description: `A great place for ${name.split(' ')[0]} music.`,
@@ -510,7 +514,7 @@ export function AdminView() {
       const { data: insertedBand, error: bandError } = await supabase
         .from('bands')
         .insert([{
-          manager_id: user.id,
+          // manager_id: user.id,
           name: 'The Test Band',
           description: 'A band created for testing purposes.',
           phone: '555-TEST',
@@ -640,35 +644,72 @@ export function AdminView() {
 
       <h2 className="text-4xl font-bold tracking-tight">Admin Dashboard</h2>
       
-      <div className="relative" ref={dropdownRef}>
-        <button 
-          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="w-full md:w-64 flex justify-between items-center px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-xl text-sm font-bold uppercase tracking-widest text-white hover:bg-neutral-800 transition-all"
-        >
-          {activeTabLabel}
-          <ChevronDown size={16} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
-        </button>
-        
-        {isDropdownOpen && (
-          <div className="absolute top-full left-0 w-full md:w-64 mt-2 bg-neutral-900 border border-neutral-800 rounded-xl shadow-xl z-50 overflow-hidden">
-            {tabs.map((tab) => (
-              <button 
-                key={tab.id}
-                onClick={() => {
-                  setActiveSubTab(tab.id);
-                  setIsDropdownOpen(false);
-                }}
-                className={`w-full px-4 py-3 text-sm font-bold uppercase tracking-widest transition-all text-left ${
-                  activeSubTab === tab.id 
-                    ? 'bg-red-600 text-white' 
-                    : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1" ref={recentRef}>
+          <button 
+            onClick={() => setIsRecentOpen(!isRecentOpen)}
+            className="w-full flex justify-between items-center px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-xl text-sm font-bold uppercase tracking-widest text-white hover:bg-neutral-800 transition-all"
+          >
+            Recent Records
+            <ChevronDown size={16} className={`transition-transform ${isRecentOpen ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {isRecentOpen && (
+            <div className="absolute top-full left-0 w-full mt-2 bg-neutral-900 border border-neutral-800 rounded-xl shadow-xl z-50 overflow-hidden max-h-96 overflow-y-auto">
+              {recentRecords.length === 0 ? (
+                <div className="px-4 py-3 text-sm text-neutral-400">No recent records.</div>
+              ) : (
+                recentRecords.map((record, i) => (
+                  <button 
+                    key={i}
+                    onClick={() => {
+                      setIsRecentOpen(false);
+                      setActiveSubTab(record.type === 'person' ? 'people' : record.type === 'band' ? 'bands' : record.type === 'venue' ? 'venues' : 'events');
+                      if (record.type === 'band') setSelectedBandId(record.id);
+                      else if (record.type === 'venue') setSelectedVenueId(record.id);
+                      else if (record.type === 'person') setSelectedPersonId(record.id);
+                      else if (record.type === 'event') setSelectedEventId(record.id);
+                    }}
+                    className="w-full px-4 py-3 text-sm font-bold transition-all text-left text-neutral-400 hover:bg-neutral-800 hover:text-white border-b border-neutral-800 last:border-0"
+                  >
+                    {record.name} <span className="text-xs text-neutral-500">({record.type})</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="relative flex-1" ref={dropdownRef}>
+          <button 
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="w-full flex justify-between items-center px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-xl text-sm font-bold uppercase tracking-widest text-white hover:bg-neutral-800 transition-all"
+          >
+            {activeTabLabel}
+            <ChevronDown size={16} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {isDropdownOpen && (
+            <div className="absolute top-full left-0 w-full mt-2 bg-neutral-900 border border-neutral-800 rounded-xl shadow-xl z-50 overflow-hidden">
+              {tabs.map((tab) => (
+                <button 
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveSubTab(tab.id);
+                    setIsDropdownOpen(false);
+                  }}
+                  className={`w-full px-4 py-3 text-sm font-bold uppercase tracking-widest transition-all text-left ${
+                    activeSubTab === tab.id 
+                      ? 'bg-red-600 text-white' 
+                      : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex-grow bg-neutral-900 border border-neutral-800 rounded-3xl p-8">
@@ -842,11 +883,9 @@ export function AdminView() {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-white block">{v.name}</span>
-                          {v.manager && (
-                            <span className="text-xs text-neutral-400 font-medium tracking-wide">
-                              • {v.manager.first_name} {v.manager.last_name}
-                            </span>
-                          )}
+                          <span className="text-xs text-neutral-400 font-medium tracking-wide">
+                            • {v.manager ? `${v.manager.first_name} ${v.manager.last_name}` : 'Unassigned'}
+                          </span>
                         </div>
                         {v.updated_at && (
                           <div className="flex items-center gap-2 text-[10px] text-neutral-400 font-medium uppercase tracking-wider">

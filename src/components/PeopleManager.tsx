@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useNavigationContext } from '../context/NavigationContext';
 import { Person, Venue, Band, UserRole, MusicianProfile } from '../types';
-import { Loader2, Plus, Search, User, Mail, Phone, Building2, Music, Trash2, X, ShieldCheck, Clock, Eye, EyeOff, AlertCircle, Check } from 'lucide-react';
+import { Loader2, Plus, Search, User, Mail, Phone, Building2, Music, Trash2, X, ShieldCheck, Clock, Eye, EyeOff, AlertCircle, Check, RefreshCcw } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Card } from './ui/Card';
@@ -15,6 +16,7 @@ const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
 const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
 
 export default function PeopleManager() {
+  const { addRecentRecord } = useNavigationContext();
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,8 +38,9 @@ export default function PeopleManager() {
   const [selectedRoleForAssociation, setSelectedRoleForAssociation] = useState<UserRole>('venue_manager');
   const [musicianData, setMusicianData] = useState<Partial<MusicianProfile>>({
     instruments: [],
-    looking_for_band: false,
-    open_for_gigs: false
+    looking_for_bands: false,
+    open_for_gigs: false,
+    is_solo_act: false
   });
   
   // Venue/Band selection state
@@ -69,6 +72,12 @@ export default function PeopleManager() {
 
   useEffect(() => {
     if (editingPerson) {
+      addRecentRecord({
+        id: editingPerson.id,
+        type: 'person',
+        name: `${editingPerson.first_name} ${editingPerson.last_name}`,
+        timestamp: Date.now()
+      });
       setFirstName(editingPerson.first_name);
       setLastName(editingPerson.last_name);
       setEmail(editingPerson.email || '');
@@ -311,6 +320,15 @@ export default function PeopleManager() {
               default_role: finalDefaultRole
             });
           if (profileError) console.warn('Profile sync warning:', profileError);
+
+          if (finalRoles.includes('musician')) {
+            await supabase
+              .from('musician_profiles')
+              .upsert({
+                id: targetUserId,
+                ...musicianData
+              });
+          }
         }
       } else {
         // Use upsert to handle case where trigger might have already created the record via signUp
@@ -350,6 +368,16 @@ export default function PeopleManager() {
               roles: finalRoles,
               default_role: finalDefaultRole
             });
+          
+          // Sync musician profile if they are a musician
+          if (finalRoles.includes('musician')) {
+            await supabase
+              .from('musician_profiles')
+              .upsert({
+                id: newUserId,
+                ...musicianData
+              });
+          }
         }
       }
 
@@ -565,11 +593,16 @@ export default function PeopleManager() {
 
       <div className="flex justify-between items-center">
         <h3 className="text-xl font-bold">People</h3>
-        <Button 
-          onClick={() => setIsAdding(true)}
-        >
-          <Plus size={16} /> Add Person
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={fetchPeople} className="text-neutral-400 hover:text-white">
+            <RefreshCcw size={16} />
+          </Button>
+          <Button 
+            onClick={() => setIsAdding(true)}
+          >
+            <Plus size={16} /> Add Person
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
@@ -881,12 +914,16 @@ export default function PeopleManager() {
                   </div>
                   <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
-                      <input type="checkbox" id="lookingForBand" checked={musicianData.looking_for_band || false} onChange={(e) => setMusicianData({...musicianData, looking_for_band: e.target.checked})} className="rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600" />
+                      <input type="checkbox" id="lookingForBand" checked={musicianData.looking_for_bands || false} onChange={(e) => setMusicianData({...musicianData, looking_for_bands: e.target.checked})} className="rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600" />
                       <label htmlFor="lookingForBand" className="text-xs font-bold uppercase tracking-widest text-neutral-400">Looking for Band</label>
                     </div>
                     <div className="flex items-center gap-2">
                       <input type="checkbox" id="openForGigs" checked={musicianData.open_for_gigs || false} onChange={(e) => setMusicianData({...musicianData, open_for_gigs: e.target.checked})} className="rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600" />
                       <label htmlFor="openForGigs" className="text-xs font-bold uppercase tracking-widest text-neutral-400">Open for Gigs</label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" id="isSoloAct" checked={musicianData.is_solo_act || false} onChange={(e) => setMusicianData({...musicianData, is_solo_act: e.target.checked})} className="rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600" />
+                      <label htmlFor="isSoloAct" className="text-xs font-bold uppercase tracking-widest text-neutral-400">Is Solo Act</label>
                     </div>
                   </div>
                 </div>
@@ -1098,7 +1135,7 @@ export default function PeopleManager() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredPeople.map((person) => {
-            const isSoloAct = person.band_ids && person.band_ids.length > 0;
+            const isSoloAct = person.musician_profiles?.is_solo_act || false;
             return (
             <div key={person.id} className="p-4 bg-neutral-800 rounded-2xl border border-neutral-700/50 hover:border-red-600/30 transition-all group flex flex-col gap-3">
               <div className="flex justify-between items-start">

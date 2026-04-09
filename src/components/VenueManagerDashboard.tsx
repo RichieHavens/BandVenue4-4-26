@@ -11,6 +11,7 @@ import { Card } from './ui/Card';
 import { StatusBadge, EventStatus } from './ui/StatusBadge';
 import { Button } from './ui/Button';
 import { SectionHeader } from './ui/SectionHeader';
+import { isOpenSlot, isActionRequired, isUnconfirmedAct, isConfirmedEvent } from '../lib/eventFilters';
 
 export function getEventReadiness(event: AppEvent): { status: string, colorClass: string, bgClass: string } {
   if (event.is_canceled) return { status: 'Canceled', colorClass: 'text-red-500', bgClass: 'bg-red-500/10 border-red-500/20' };
@@ -100,8 +101,9 @@ export default function VenueManagerDashboard({ venues, onNavigate }: VenueManag
   const upcomingEvents = events.filter(e => new Date(e.start_time) >= now);
   const pastEvents = events.filter(e => new Date(e.start_time) < now);
   
-  const confirmedEvents = upcomingEvents.filter(e => e.venue_confirmed && e.band_confirmed && e.hero_url);
-  const openSlots = upcomingEvents.filter(e => !e.acts || e.acts.length === 0 || !e.acts.some((a: any) => a.band_id));
+  const confirmedEvents = upcomingEvents.filter(isConfirmedEvent);
+  const openSlots = upcomingEvents.filter(isOpenSlot);
+  const unconfirmedActs = upcomingEvents.filter(isUnconfirmedAct);
   
   const almostReadyEvents = upcomingEvents.filter(e => {
     const hasBand = e.acts && e.acts.length > 0 && e.acts.some((a: any) => a.band_id);
@@ -113,22 +115,7 @@ export default function VenueManagerDashboard({ venues, onNavigate }: VenueManag
     return missingCount === 1 && !e.is_published;
   });
 
-  const actionRequiredYou = upcomingEvents.filter(e => {
-    const hasBand = e.acts && e.acts.length > 0 && e.acts.some((a: any) => a.band_id);
-    let missingCount = 0;
-    if (!hasBand) missingCount++;
-    if (hasBand && !e.band_confirmed) missingCount++;
-    if (!e.venue_confirmed) missingCount++;
-    if (!e.hero_url) missingCount++;
-    
-    // If it's almost ready, we don't count it as a general "Action Required" to avoid double counting in the top cards
-    if (missingCount === 1 && !e.is_published) return false;
-    
-    const noBand = !hasBand;
-    const missingPromo = !e.hero_url;
-    const needsVenueConfirm = !e.venue_confirmed;
-    return noBand || missingPromo || needsVenueConfirm;
-  });
+  const actionRequiredYou = upcomingEvents.filter(isActionRequired);
 
   const waitingOnOthers = upcomingEvents.filter(e => {
     const hasBand = e.acts && e.acts.length > 0 && e.acts.some((a: any) => a.band_id);
@@ -302,27 +289,27 @@ export default function VenueManagerDashboard({ venues, onNavigate }: VenueManag
           () => onNavigate('events')
         )}
         {renderSummaryCard(
-          "Almost Ready", 
-          almostReadyEvents.length, 
-          <CheckCircle size={24} className="text-amber-500" />, 
-          "text-amber-500 bg-amber-500", 
-          "bg-amber-950/20 hover:bg-amber-900/30 border-amber-900/50",
+          "Open Slots", 
+          openSlots.length, 
+          <Music size={24} className="text-yellow-500" />, 
+          "text-yellow-500 bg-yellow-500", 
+          "bg-yellow-950/20 hover:bg-yellow-900/30 border-yellow-900/50",
           () => onNavigate('events')
         )}
         {renderSummaryCard(
-          "Waiting on Others", 
-          waitingOnOthers.length, 
+          "Unconfirmed Acts", 
+          unconfirmedActs.length, 
           <Clock size={24} className="text-orange-500" />, 
           "text-orange-500 bg-orange-500", 
-          "bg-neutral-900 hover:bg-neutral-800",
+          "bg-orange-950/20 hover:bg-orange-900/30 border-orange-900/50",
           () => onNavigate('events')
         )}
         {renderSummaryCard(
-          "Confirmed & Ready", 
+          "Confirmed Events", 
           confirmedEvents.length, 
           <CheckCircle size={24} className="text-green-500" />, 
           "text-green-500 bg-green-500", 
-          "bg-neutral-900 hover:bg-neutral-800",
+          "bg-green-950/20 hover:bg-green-900/30 border-green-900/50",
           () => onNavigate('events')
         )}
         {renderSummaryCard(
@@ -330,7 +317,7 @@ export default function VenueManagerDashboard({ venues, onNavigate }: VenueManag
           upcomingEvents.length, 
           <Calendar size={24} className="text-blue-500" />, 
           "text-blue-500 bg-blue-500", 
-          "bg-neutral-900 hover:bg-neutral-800",
+          "bg-blue-950/20 hover:bg-blue-900/30 border-blue-900/50",
           () => onNavigate('events')
         )}
       </div>

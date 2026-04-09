@@ -701,7 +701,7 @@ export function ScraperView() {
             email: venueData.email || '',
             website: venueData.website || '',
             images: Array.isArray(venueData.images) ? venueData.images : [],
-            manager_id: String(user.id).trim()
+            manager_id: null
           };
 
           const { data, error } = await supabase.from('venues').insert(venueToInsert).select().maybeSingle();
@@ -799,7 +799,7 @@ export function ScraperView() {
             city: bandData.city || '',
             state: bandData.state || '',
             images: Array.isArray(bandData.images) ? bandData.images : [],
-            manager_id: String(user.id).trim()
+            manager_id: null
           };
 
           const { data, error } = await supabase.from('bands').insert(bandToInsert).select().maybeSingle();
@@ -1076,7 +1076,7 @@ export function ScraperView() {
           email: item.email || '',
           website: item.website || '',
           images: Array.isArray(item.images) ? item.images : [],
-          manager_id: String(user.id).trim()
+          manager_id: null
         };
 
         const { data, error } = await supabase.from('venues').insert(venueToInsert).select().maybeSingle();
@@ -1125,7 +1125,7 @@ export function ScraperView() {
           city: item.city || '',
           state: item.state || '',
           images: Array.isArray(item.images) ? item.images : [],
-          manager_id: String(user.id).trim()
+          manager_id: null
         };
 
         const { data, error } = await supabase.from('bands').insert(bandToInsert).select().maybeSingle();
@@ -1162,7 +1162,7 @@ export function ScraperView() {
         if (!venueId) {
           const { data: newVenue } = await supabase.from('venues').insert({ 
             name: vName, 
-            manager_id: String(user.id).trim() 
+            manager_id: null 
           }).select().maybeSingle();
           if (newVenue) venueId = newVenue.id;
         }
@@ -1210,7 +1210,7 @@ export function ScraperView() {
             if (!bandId) {
               const { data: newBand } = await supabase.from('bands').insert({ 
                 name: bn, 
-                manager_id: String(user.id).trim() 
+                manager_id: null 
               }).select().maybeSingle();
               if (newBand) bandId = newBand.id;
             }
@@ -1282,7 +1282,7 @@ export function ScraperView() {
           email: originalData.email || '',
           website: originalData.website || '',
           images: Array.isArray(originalData.images) ? originalData.images : [],
-          manager_id: String(user.id).trim()
+          manager_id: null
         };
         
         const { data, error } = await supabase.from('venues').insert(venueToInsert).select().maybeSingle();
@@ -1310,7 +1310,7 @@ export function ScraperView() {
           email: originalData.email || '',
           website: originalData.website || '',
           images: Array.isArray(originalData.images) ? originalData.images : [],
-          manager_id: String(user.id).trim()
+          manager_id: null
         };
         
         const { data, error } = await supabase.from('bands').insert(bandToInsert).select().maybeSingle();

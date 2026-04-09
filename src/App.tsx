@@ -47,7 +47,8 @@ function AppContent() {
     setPendingTab, 
     confirmNavigation,
     selectedBandId,
-    selectedEventId
+    selectedEventId,
+    eventFilter
   } = useNavigationContext();
   
   const [isResettingPassword, setIsResettingPassword] = useState(false);
@@ -134,17 +135,17 @@ function AppContent() {
       <DisclaimerOverlay />
       
       {/* Navigation */}
-      <Navigation />
+      {activeTab !== 'login' && <Navigation />}
 
       {/* Main Content */}
-      <main className="pt-6 pb-24 md:pt-24 md:pb-12 max-w-7xl mx-auto px-4">
+      <main className={`${activeTab === 'login' ? '' : 'pt-6 pb-24 md:pt-24 md:pb-12 max-w-7xl mx-auto px-4'}`}>
         {!user && !['events', 'venues', 'bands', 'musicians', 'login', 'confirm-event'].includes(activeTab) ? (
           <AuthUI />
         ) : (
           <>
             {activeTab === 'events' && <EventsView />}
             {activeTab === 'dashboard' && <DashboardView />}
-            {activeTab === 'manage-events' && <EventManager />}
+            {activeTab === 'manage-events' && <EventManager initialAttentionFilter={eventFilter?.attention} initialEntityFilter={eventFilter?.entity} />}
             {activeTab === 'venues' && <VenuesView />}
             {activeTab === 'bands' && <BandsView />}
             {activeTab === 'musicians' && <MusiciansView />}
@@ -163,15 +164,17 @@ function AppContent() {
             {activeTab === 'confirm-event' && <BandConfirmationPage eventId={window.location.pathname.split('/')[2]} />}
 
             {/* Footer About Us */}
-            <div className="mt-20 pt-8 border-t border-neutral-900 flex flex-col items-center gap-4">
-              <button 
-                onClick={() => setIsAboutOpen(true)}
-                className="text-neutral-600 hover:text-red-600 text-[10px] font-bold uppercase tracking-[0.2em] transition-all"
-              >
-                About BandVenue
-              </button>
-              <p className="text-[10px] text-neutral-800 font-medium">© 2026 BandVenue. All rights reserved.</p>
-            </div>
+            {activeTab !== 'login' && (
+              <div className="mt-20 pt-8 border-t border-neutral-900 flex flex-col items-center gap-4">
+                <button 
+                  onClick={() => setIsAboutOpen(true)}
+                  className="text-neutral-600 hover:text-red-600 text-[10px] font-bold uppercase tracking-[0.2em] transition-all"
+                >
+                  About BandVenue
+                </button>
+                <p className="text-[10px] text-neutral-800 font-medium">© 2026 BandVenue. All rights reserved.</p>
+              </div>
+            )}
           </>
         )}
       </main>

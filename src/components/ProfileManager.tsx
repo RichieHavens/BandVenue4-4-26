@@ -18,7 +18,7 @@ import { Button } from './ui/Button';
 type Tab = 'account' | 'musician' | 'security';
 
 export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDirtyChange?: (dirty: boolean) => void, onSaveSuccess?: () => void }) {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, managedBands, managedVenues } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('account');
   
   // Account State
@@ -42,13 +42,9 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
   
   // Role Request State
   const [roleRequests, setRoleRequests] = useState<{
-    musician: { active: boolean, details: string },
-    band_manager: { active: boolean, details: string },
-    venue_manager: { active: boolean, details: string }
+    musician: { active: boolean, details: string }
   }>({
-    musician: { active: false, details: '' },
-    band_manager: { active: false, details: '' },
-    venue_manager: { active: false, details: '' }
+    musician: { active: false, details: '' }
   });
 
   // Musician State
@@ -786,7 +782,32 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
               </div>
             </div>
 
-              {/* Role Request Section */}
+              {/* Current System Roles Section */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 md:p-10 space-y-8">
+              <div className="flex items-center gap-3 mb-2">
+                <Shield className="text-red-500" size={24} />
+                <h3 className="text-xl font-bold text-white">Current System Roles</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {managedBands.length > 0 && (
+                  <div className="p-4 bg-neutral-800/50 rounded-2xl border border-neutral-700">
+                    <p className="text-sm font-bold text-white">Manager of {managedBands.length} band{managedBands.length > 1 ? 's' : ''}</p>
+                    <p className="text-xs text-neutral-400">{managedBands.map(b => b.name).join(', ')}</p>
+                  </div>
+                )}
+                {managedVenues.length > 0 && (
+                  <div className="p-4 bg-neutral-800/50 rounded-2xl border border-neutral-700">
+                    <p className="text-sm font-bold text-white">Manager of {managedVenues.length} venue{managedVenues.length > 1 ? 's' : ''}</p>
+                    <p className="text-xs text-neutral-400">{managedVenues.map(v => v.name).join(', ')}</p>
+                  </div>
+                )}
+                {managedBands.length === 0 && managedVenues.length === 0 && (
+                  <p className="text-sm text-neutral-400">No system roles currently assigned.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Role Request Section */}
               <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 md:p-10 space-y-6">
                 <div className="flex items-center gap-3 mb-2">
                   <Shield className="text-red-500" size={24} />
@@ -794,7 +815,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                 </div>
                 <p className="text-neutral-400 text-sm">Select the roles you would like to request access for. An admin will review your request.</p>
 
-                {(['musician', 'band_manager', 'venue_manager'] as const).map((role) => (
+                {(['musician'] as const).map((role) => (
                   <div key={role} className="space-y-4 p-6 bg-neutral-800/30 border border-neutral-700/50 rounded-3xl">
                     <div className="flex items-center justify-between">
                       <label className="text-sm font-bold text-white uppercase tracking-widest">I am also an active {role.replace('_', ' ')}</label>
