@@ -13,6 +13,7 @@ import ResetPasswordView from './components/ResetPasswordView';
 import AboutModal from './components/AboutModal';
 import EventDetailsModal from './components/EventDetailsModal';
 import BandConfirmationPage from './components/BandConfirmationPage';
+import ComingSoon from './components/ComingSoon';
 import { Toaster } from 'sonner';
 import SupabaseErrorBoundary from './components/SupabaseErrorBoundary';
 
@@ -53,6 +54,7 @@ function AppContent() {
   
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(() => sessionStorage.getItem('unlocked') === 'true');
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -64,6 +66,13 @@ function AppContent() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [unsavedChanges]);
+
+  if (!isUnlocked) {
+    return <ComingSoon onUnlock={() => {
+      sessionStorage.setItem('unlocked', 'true');
+      setIsUnlocked(true);
+    }} />;
+  }
 
   useEffect(() => {
     // Check if we are in a password reset flow
