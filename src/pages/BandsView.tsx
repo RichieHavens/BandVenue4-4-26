@@ -6,19 +6,40 @@ import { formatDate } from '../lib/utils';
 import ProfilePreviewModal from '../components/ProfilePreviewModal';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { useAuth } from '../AuthContext';
 
 export function BandsView() {
+  const { user } = useAuth();
   const [bands, setBands] = useState<Band[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string>('All');
   const [showFavorites, setShowFavorites] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedBand, setSelectedBand] = useState<Band | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   React.useEffect(() => {
     fetchBands();
-  }, []);
+    if (user) {
+      fetchFavorites();
+    }
+  }, [user]);
+
+  async function fetchFavorites() {
+    try {
+      const { data } = await supabase
+        .from('favorites')
+        .select('target_id')
+        .eq('user_id', user?.id)
+        .eq('target_type', 'band');
+      if (data) {
+        setFavorites(new Set(data.map(f => f.target_id)));
+      }
+    } catch (err) {
+      console.error('Error fetching favorites:', err);
+    }
+  }
 
   async function fetchBands() {
     try {
@@ -52,7 +73,8 @@ export function BandsView() {
   const filtered = bands.filter(b => {
     const matchesSearch = b.name.toLowerCase().includes(search.toLowerCase());
     const matchesGenre = selectedGenre === 'All' || (b as any).genres?.includes(selectedGenre);
-    return matchesSearch && matchesGenre;
+    const matchesFavorites = !showFavorites || favorites.has(b.id);
+    return matchesSearch && matchesGenre && matchesFavorites;
   });
 
   return (
@@ -96,19 +118,19 @@ export function BandsView() {
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600" size={48} /></div>
       ) : filtered.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filtered.map((band) => {
             const defaultBandLogo = `https://picsum.photos/seed/band-logo-${band.id}/200/200`;
             return (
               <div 
                 key={band.id} 
-                className="flex gap-6 p-6 bg-neutral-800/50 border border-neutral-700 rounded-3xl hover:border-neutral-600 transition-all group cursor-pointer"
+                className="flex gap-4 p-4 bg-neutral-800/50 border border-neutral-700 rounded-2xl hover:border-neutral-600 transition-all group cursor-pointer"
                 onClick={() => {
                   setSelectedBand(band);
                   setIsPreviewOpen(true);
                 }}
               >
-                <div className="w-32 h-32 rounded-2xl bg-neutral-900 overflow-hidden shrink-0">
+                <div className="w-24 h-24 rounded-xl bg-neutral-900 overflow-hidden shrink-0">
                   <img 
                     src={band.logo_url || band.images?.[0] || defaultBandLogo} 
                     alt={band.name} 
@@ -116,23 +138,22 @@ export function BandsView() {
                     referrerPolicy="no-referrer"
                   />
                 </div>
-                <div>
-                  <div className="flex flex-wrap gap-1 mb-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap gap-1 mb-1">
                     {(band as any).genres?.map((g: string) => (
-                      <span key={g} className="text-[10px] font-bold uppercase tracking-widest text-blue-500/70">{g}</span>
+                      <span key={g} className="text-[9px] font-black uppercase tracking-widest text-blue-500/70">{g}</span>
                     ))}
                   </div>
-                  <h3 className="text-2xl font-bold mb-1 text-white">{band.name}</h3>
+                  <h3 className="text-xl font-bold mb-0.5 text-white truncate">{band.name}</h3>
                   {(band.city || band.state) && (
-                    <p className="text-neutral-400 text-sm mb-3">
+                    <p className="text-neutral-400 text-xs mb-2">
                       {[band.city, band.state].filter(Boolean).join(', ')}
                     </p>
                   )}
-                  <p className="text-neutral-400 line-clamp-2 text-sm">{band.description}</p>
+                  <p className="text-neutral-400 line-clamp-2 text-xs leading-relaxed">{band.description}</p>
                   {(band as any).updated_at && (
-                    <p className="text-[10px] text-neutral-600 mt-2">
+                    <p className="text-[9px] text-neutral-600 mt-2">
                       Updated: {formatDate((band as any).updated_at)} 
-                      {(band as any).profiles?.first_name ? ` by ${(band as any).profiles.first_name} ${(band as any).profiles.last_name}` : ''}
                     </p>
                   )}
                 </div>
@@ -143,7 +164,9 @@ export function BandsView() {
       ) : (
         <div className="bg-neutral-800/50 border border-neutral-700 rounded-3xl p-12 text-center">
           <Music className="mx-auto text-neutral-600 mb-4" size={48} />
-          <p className="text-neutral-400">No bands found.</p>
+          <p className="text-neutral-400">
+            {showFavorites ? "You haven't added any bands to your favorites yet." : "No bands found."}
+          </p>
         </div>
       )}
 

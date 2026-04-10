@@ -1,21 +1,44 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Venue } from '../types';
-import { Search, Loader2, MapPin } from 'lucide-react';
+import { Search, Loader2, MapPin, Star } from 'lucide-react';
 import { displayAddress } from '../lib/geo';
 import { formatDate } from '../lib/utils';
 import ProfilePreviewModal from '../components/ProfilePreviewModal';
+import { Button } from '../components/ui/Button';
+import { useAuth } from '../AuthContext';
 
 export function VenuesView() {
+  const { user } = useAuth();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   React.useEffect(() => {
     fetchVenues();
-  }, []);
+    if (user) {
+      fetchFavorites();
+    }
+  }, [user]);
+
+  async function fetchFavorites() {
+    try {
+      const { data } = await supabase
+        .from('favorites')
+        .select('target_id')
+        .eq('user_id', user?.id)
+        .eq('target_type', 'venue');
+      if (data) {
+        setFavorites(new Set(data.map(f => f.target_id)));
+      }
+    } catch (err) {
+      console.error('Error fetching favorites:', err);
+    }
+  }
 
   async function fetchVenues() {
     try {
@@ -43,40 +66,56 @@ export function VenuesView() {
     }
   }
 
-  const filtered = venues.filter(v => (v.name || '').toLowerCase().includes(search.toLowerCase()));
+  const filtered = venues.filter(v => {
+    const matchesSearch = (v.name || '').toLowerCase().includes(search.toLowerCase());
+    const matchesFavorites = !showFavorites || favorites.has(v.id);
+    return matchesSearch && matchesFavorites;
+  });
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h2 className="text-4xl font-bold tracking-tight">Venues</h2>
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
-          <input
-            type="text"
-            placeholder="Search venues..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl py-2 pl-12 pr-4 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all"
-          />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <h2 className="text-4xl font-bold tracking-tight">Venues</h2>
+          <div className="relative w-full md:w-72">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search venues..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl py-2 pl-12 pr-4 text-sm focus:ring-2 focus:ring-blue-600 outline-none transition-all"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <Button
+            variant={showFavorites ? 'primary' : 'secondary'}
+            onClick={() => setShowFavorites(!showFavorites)}
+            className="flex items-center gap-2"
+          >
+            <Star size={18} fill={showFavorites ? 'currentColor' : 'none'} />
+            <span className="text-sm font-medium">Favorites</span>
+          </Button>
         </div>
       </div>
       
       {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-red-500" size={48} /></div>
+        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-500" size={48} /></div>
       ) : filtered.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filtered.map((venue) => {
             const defaultVenueLogo = `https://picsum.photos/seed/venue-logo-${venue.id}/200/200`;
             return (
               <div 
                 key={venue.id} 
-                className="flex gap-6 p-6 bg-neutral-900 border border-neutral-800 rounded-3xl hover:border-neutral-700 transition-all group cursor-pointer"
+                className="flex gap-4 p-4 bg-neutral-900 border border-neutral-800 rounded-2xl hover:border-neutral-700 transition-all group cursor-pointer"
                 onClick={() => {
                   setSelectedVenue(venue);
                   setIsPreviewOpen(true);
                 }}
               >
-                <div className="w-32 h-32 rounded-2xl bg-neutral-800 overflow-hidden shrink-0">
+                <div className="w-24 h-24 rounded-xl bg-neutral-800 overflow-hidden shrink-0">
                   <img 
                     src={venue.logo_url || venue.images?.[0] || defaultVenueLogo} 
                     alt={venue.name} 
@@ -84,19 +123,18 @@ export function VenuesView() {
                     referrerPolicy="no-referrer"
                   />
                 </div>
-                <div>
-                  <div className="flex flex-wrap gap-1 mb-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap gap-1 mb-1">
                     {(venue as any).genres?.map((g: string) => (
-                      <span key={g} className="text-[10px] font-bold uppercase tracking-widest text-red-500/70">{g}</span>
+                      <span key={g} className="text-[9px] font-black uppercase tracking-widest text-blue-500/70">{g}</span>
                     ))}
                   </div>
-                  <h3 className="text-2xl font-bold mb-1">{venue.name}</h3>
-                  <p className="text-neutral-400 text-sm mb-3">{displayAddress(venue.address)}</p>
-                  <p className="text-neutral-400 line-clamp-2 text-sm">{venue.description}</p>
+                  <h3 className="text-xl font-bold mb-0.5 truncate">{venue.name}</h3>
+                  <p className="text-neutral-400 text-xs mb-2 truncate">{displayAddress(venue.address)}</p>
+                  <p className="text-neutral-400 line-clamp-2 text-xs leading-relaxed">{venue.description}</p>
                   {(venue as any).updated_at && (
-                    <p className="text-[10px] text-neutral-600 mt-2">
+                    <p className="text-[9px] text-neutral-600 mt-2">
                       Updated: {formatDate((venue as any).updated_at)} 
-                      {(venue as any).profiles?.first_name ? ` by ${(venue as any).profiles.first_name} ${(venue as any).profiles.last_name}` : ''}
                     </p>
                   )}
                 </div>

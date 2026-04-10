@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, MapPin, Phone, Globe, Mail, Info, Music, Calendar, Video, Clock, Ticket, Linkedin, Youtube, Link as LinkIcon, Instagram, Headphones, Facebook, Twitter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, MapPin, Phone, Globe, Mail, Info, Music, Calendar, Video, Clock, Ticket, Linkedin, Youtube, Link as LinkIcon, Instagram, Headphones, Facebook, Twitter, ChevronLeft, ChevronRight, Heart, Loader2 } from 'lucide-react';
 import { displayAddress } from '../lib/geo';
 import { formatDate, formatTimeString, getDateFromDate } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { Venue, Band, AppEvent } from '../types';
+import { useAuth } from '../AuthContext';
 
 interface ProfilePreviewModalProps {
   isOpen: boolean;
@@ -15,18 +16,26 @@ interface ProfilePreviewModalProps {
 }
 
 export default function ProfilePreviewModal({ isOpen, onClose, type, data }: ProfilePreviewModalProps) {
+  const { user } = useAuth();
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<AppEvent | null>(null);
   const [stackedVenue, setStackedVenue] = useState<any | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [bandMembers, setBandMembers] = useState<any[]>([]);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [isFavoriting, setIsFavoriting] = useState(false);
 
   useEffect(() => {
-    if (isOpen && data?.id && (type === 'venue' || type === 'band')) {
-      fetchFutureEvents();
-      if (type === 'band') {
-        fetchBandMembers();
+    if (isOpen && data?.id) {
+      if (type === 'venue' || type === 'band') {
+        fetchFutureEvents();
+        if (type === 'band') {
+          fetchBandMembers();
+        }
+      }
+      if (user) {
+        checkIfFavorited();
       }
     }
     if (!isOpen) {
@@ -34,8 +43,64 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
       setStackedVenue(null);
       setLightboxIndex(null);
       setBandMembers([]);
+      setIsFavorited(false);
     }
-  }, [isOpen, data?.id, type]);
+  }, [isOpen, data?.id, type, user]);
+
+  async function checkIfFavorited() {
+    try {
+      const targetType = type === 'profile' ? 'musician' : type;
+      if (targetType === 'event') return; // Handled by EventDetailsModal mostly, but good to have here too
+
+      const { data: favData } = await supabase
+        .from('favorites')
+        .select('id')
+        .eq('user_id', user?.id)
+        .eq('target_id', data.id)
+        .eq('target_type', targetType)
+        .single();
+      
+      if (favData) setIsFavorited(true);
+    } catch (err) {
+      // Not favorited
+    }
+  }
+
+  async function toggleFavorite() {
+    if (!user) {
+      alert('Please sign in to favorite');
+      return;
+    }
+
+    const targetType = type === 'profile' ? 'musician' : type;
+    if (targetType === 'event') return;
+
+    setIsFavoriting(true);
+    try {
+      if (isFavorited) {
+        await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('target_id', data.id)
+          .eq('target_type', targetType);
+        setIsFavorited(false);
+      } else {
+        await supabase
+          .from('favorites')
+          .insert({
+            user_id: user.id,
+            target_id: data.id,
+            target_type: targetType
+          });
+        setIsFavorited(true);
+      }
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+    } finally {
+      setIsFavoriting(false);
+    }
+  }
 
   async function fetchBandMembers() {
     try {
@@ -968,6 +1033,20 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
           >
             <X size={20} />
           </button>
+
+          {type !== 'event' && !selectedEvent && !stackedVenue && (
+            <button 
+              onClick={toggleFavorite}
+              disabled={isFavoriting}
+              className={`absolute top-4 right-16 z-10 w-10 h-10 bg-black/50 hover:bg-black/80 backdrop-blur-md rounded-full flex items-center justify-center transition-colors ${isFavorited ? 'text-blue-500' : 'text-white'}`}
+            >
+              {isFavoriting ? (
+                <Loader2 size={20} className="animate-spin" />
+              ) : (
+                <Heart size={20} className={isFavorited ? 'fill-current' : ''} />
+              )}
+            </button>
+          )}
           
           {renderContent()}
         </motion.div>

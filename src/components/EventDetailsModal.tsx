@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { X, Calendar, MapPin, Music, Clock, Info, Heart, Share, Navigation as NavigationIcon, Ticket } from 'lucide-react';
+import { X, Calendar, MapPin, Music, Clock, Info, Heart, Share, Navigation as NavigationIcon, Ticket, Loader2 } from 'lucide-react';
 import { displayAddress } from '../lib/geo';
 import { formatFullDate, formatTime } from '../lib/utils';
 import { Button } from './ui/shadcn-button';
 import { Badge } from './ui/badge';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../AuthContext';
 
 interface EventDetailsModalProps {
   event: any | null;
@@ -12,8 +14,66 @@ interface EventDetailsModalProps {
 }
 
 export default function EventDetailsModal({ event, onClose }: EventDetailsModalProps) {
+  const { user } = useAuth();
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [isAtTop, setIsAtTop] = React.useState(true);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [isFavoriting, setIsFavoriting] = useState(false);
+
+  useEffect(() => {
+    if (user && event?.id) {
+      checkIfFavorited();
+    }
+  }, [user, event?.id]);
+
+  async function checkIfFavorited() {
+    try {
+      const { data, error } = await supabase
+        .from('favorites')
+        .select('id')
+        .eq('user_id', user?.id)
+        .eq('target_id', event.id)
+        .eq('target_type', 'event')
+        .single();
+      
+      if (data) setIsFavorited(true);
+    } catch (err) {
+      // Not favorited or error
+    }
+  }
+
+  async function toggleFavorite() {
+    if (!user) {
+      alert('Please sign in to favorite events');
+      return;
+    }
+
+    setIsFavoriting(true);
+    try {
+      if (isFavorited) {
+        await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('target_id', event.id)
+          .eq('target_type', 'event');
+        setIsFavorited(false);
+      } else {
+        await supabase
+          .from('favorites')
+          .insert({
+            user_id: user.id,
+            target_id: event.id,
+            target_type: 'event'
+          });
+        setIsFavorited(true);
+      }
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+    } finally {
+      setIsFavoriting(false);
+    }
+  }
 
   const handleScroll = () => {
     if (scrollRef.current) {
@@ -138,8 +198,18 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
 
             {/* Actions Row */}
             <div className="flex items-center gap-3 py-4 border-y border-neutral-800/50">
-              <Button variant="secondary" className="flex-1 bg-neutral-900 hover:bg-neutral-800 text-white border-neutral-800">
-                <Heart size={16} className="mr-2" /> Save
+              <Button 
+                variant="secondary" 
+                className={`flex-1 bg-neutral-900 hover:bg-neutral-800 border-neutral-800 transition-all ${isFavorited ? 'text-blue-500' : 'text-white'}`}
+                onClick={toggleFavorite}
+                disabled={isFavoriting}
+              >
+                {isFavoriting ? (
+                  <Loader2 size={16} className="mr-2 animate-spin" />
+                ) : (
+                  <Heart size={16} className={`mr-2 ${isFavorited ? 'fill-current' : ''}`} />
+                )}
+                {isFavorited ? 'Saved' : 'Save'}
               </Button>
               <Button variant="secondary" className="flex-1 bg-neutral-900 hover:bg-neutral-800 text-white border-neutral-800">
                 <Share size={16} className="mr-2" /> Share

@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Search, Filter, Calendar, Music, Clock, MapPin, Loader2, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { Search, Filter, Calendar, Music, Clock, MapPin, Loader2, X, SlidersHorizontal, ChevronDown, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import RolePersonalizedHeader from '../components/RolePersonalizedHeader';
 import EventDetailsModal from '../components/EventDetailsModal';
@@ -20,11 +20,13 @@ import {
 import { Badge } from "../components/ui/badge";
 
 export function EventsView() {
-  const { activeRole } = useAuth();
+  const { user, activeRole } = useAuth();
   const [events, setEvents] = React.useState<AppEvent[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedEvent, setSelectedEvent] = React.useState<AppEvent | null>(null);
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [filter, setFilter] = React.useState({ 
     genre: '', 
     date: '', // Default to showing all upcoming events
@@ -33,7 +35,25 @@ export function EventsView() {
 
   React.useEffect(() => {
     fetchEvents();
-  }, []);
+    if (user) {
+      fetchFavorites();
+    }
+  }, [user]);
+
+  async function fetchFavorites() {
+    try {
+      const { data } = await supabase
+        .from('favorites')
+        .select('target_id')
+        .eq('user_id', user?.id)
+        .eq('target_type', 'event');
+      if (data) {
+        setFavorites(new Set(data.map(f => f.target_id)));
+      }
+    } catch (err) {
+      console.error('Error fetching favorites:', err);
+    }
+  }
 
   async function fetchEvents() {
     try {
@@ -79,7 +99,9 @@ export function EventsView() {
     const eventDate = new Date(event.start_time).toISOString().split('T')[0];
     const matchesDate = !filter.date || eventDate === filter.date;
     
-    return matchesSearch && matchesDate;
+    const matchesFavorites = !showFavorites || favorites.has(event.id);
+    
+    return matchesSearch && matchesDate && matchesFavorites;
   });
 
   const allSearchableNames = React.useMemo(() => {
@@ -101,7 +123,7 @@ export function EventsView() {
       .slice(0, 5);
   }, [filter.venue, allSearchableNames]);
 
-  const availableGenres = Array.from(new Set(eventsMatchingSearchAndDate.flatMap(e => e.event_genres || []))).sort();
+  const availableGenres = Array.from(new Set(events.flatMap(e => e.event_genres || []))).sort();
 
   const filteredEvents = eventsMatchingSearchAndDate.filter(event => {
     return !filter.genre || event.event_genres?.includes(filter.genre);
@@ -315,6 +337,15 @@ export function EventsView() {
             </div>
             
             <div className="flex items-center gap-4">
+              <Button
+                variant={showFavorites ? 'primary' : 'secondary'}
+                onClick={() => setShowFavorites(!showFavorites)}
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Star size={14} fill={showFavorites ? 'currentColor' : 'none'} />
+                <span>Favorites</span>
+              </Button>
               <p className="text-neutral-500 text-[10px] font-black uppercase tracking-widest hidden lg:block">{filteredEvents.length} Events</p>
             </div>
           </div>
