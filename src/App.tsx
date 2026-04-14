@@ -75,6 +75,11 @@ function AppContent() {
       setIsResettingPassword(true);
     }
 
+    // Check for login route
+    if (window.location.pathname === '/login') {
+      setActiveTab('login');
+    }
+
     // Check for confirmation route
     if (window.location.pathname.startsWith('/confirm-event/')) {
       setActiveTab('confirm-event');

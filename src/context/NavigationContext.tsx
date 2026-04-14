@@ -63,7 +63,9 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
 
   const setActiveTab = (tab: string) => {
     setActiveTabState(tab);
-    localStorage.setItem('bandvenue_active_tab', tab);
+    if (!['login', 'reset-password', 'confirm-event'].includes(tab)) {
+      localStorage.setItem('bandvenue_active_tab', tab);
+    }
   };
 
   const setSelectedBandId = (id: string | null) => {

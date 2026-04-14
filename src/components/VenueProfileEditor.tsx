@@ -359,8 +359,10 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
           id: selectedVenueId || undefined,
           website_url: finalWebsite,
           manager_id: venue.manager_id || null, // Preserve existing manager or leave null
+          manager_person_id: personData?.id,
           updated_at: new Date().toISOString(),
-          updated_by_id: personData?.id,
+          updated_by_id: user?.id,
+          updated_by_person_id: personData?.id,
           ...(isNew ? { created_by_id: personData?.id } : {})
         })
         .select()

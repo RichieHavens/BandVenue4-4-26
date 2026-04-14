@@ -379,7 +379,7 @@ export function AdminView() {
     setLoadingVenues(true);
     const { data } = await supabase
       .from('venues')
-      .select('*, people!updated_by_id(first_name, last_name, email), manager:profiles!manager_id(first_name, last_name)')
+      .select('*, manager:profiles!manager_id(first_name, last_name)')
       .order('name');
     if (data) setVenues(data);
     setLoadingVenues(false);

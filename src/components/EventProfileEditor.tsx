@@ -159,6 +159,13 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
       }
       const time = startTime || '00:00';
       const currentStartTime = new Date(`${eventDate}T${time}:00`).toISOString();
+
+      const { data: personData } = await supabase
+        .from('people')
+        .select('id')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+
       const eventToUpdate: any = {
         title: event?.title,
         description: event?.description,
@@ -176,7 +183,8 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
         hero_url: event?.hero_url,
         bag_policy: event?.bag_policy,
         updated_at: new Date().toISOString(),
-        updated_by_id: personId
+        updated_by_id: user?.id,
+        updated_by_person_id: personData?.id
       };
 
       const changes: any = {};

@@ -313,9 +313,11 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
         .upsert({
           ...cleanBand,
           manager_id: band.manager_id || null, // Preserve existing manager or leave null
+          manager_person_id: personData?.id,
           website_url: finalWebsite,
           updated_at: new Date().toISOString(),
-          updated_by_id: personData?.id,
+          updated_by_id: user?.id,
+          updated_by_person_id: personData?.id,
           ...(isNew ? { created_by_id: personData?.id } : {})
         })
         .select()

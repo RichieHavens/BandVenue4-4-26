@@ -59,7 +59,7 @@ export function EventsView() {
     try {
       const { data } = await supabase
         .from('events')
-        .select('*, venues(name, address), acts(*, bands:bands_ordered(name)), event_genres(genres(name))')
+        .select('*, venues(name, address_line1, address_line2, city, state, postal_code, country), acts(*, bands:bands_ordered(name)), event_genres(genres(name))')
         .eq('is_published', true);
       
       if (data) {

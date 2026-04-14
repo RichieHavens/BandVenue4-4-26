@@ -81,6 +81,12 @@ export default function QuickAddEventModal({ isOpen, onClose, onSuccess }: Quick
     setSaving(true);
     
     try {
+      const { data: personData } = await supabase
+        .from('people')
+        .select('id')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+
       const { error, data } = await supabase.from('events').insert({
         title,
         venue_id: venueId,
@@ -89,9 +95,10 @@ export default function QuickAddEventModal({ isOpen, onClose, onSuccess }: Quick
         is_public: isPublic,
         has_multiple_acts: hasMultipleActs,
         overall_status: 'draft',
-        created_by_id: personId,
+        created_by_id: personData?.id,
         updated_at: new Date().toISOString(),
-        updated_by_id: personId
+        updated_by_id: user?.id,
+        updated_by_person_id: personData?.id
       }).select().single();
 
       if (error) throw error;
