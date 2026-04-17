@@ -9,7 +9,7 @@ export const isActionRequired = (event: AppEvent) => {
   if (!event.hero_url) missingCount++;
   
   // If it's almost ready, we don't count it as a general "Action Required" to avoid double counting in the top cards
-  if (missingCount === 1 && !event.is_published) return false;
+  if (missingCount === 1 && event.status !== 'published') return false;
   
   const noBand = !hasBand;
   const missingPromo = !event.hero_url;
@@ -26,7 +26,7 @@ export const isUnconfirmedAct = (event: AppEvent) => {
   return hasBand && !event.band_confirmed;
 };
 
-export const isUnpublished = (event: AppEvent) => !event.is_published;
+export const isUnpublished = (event: AppEvent) => event.status !== 'published';
 export const isUnconfirmedVenue = (event: AppEvent) => !event.venue_confirmed;
 export const isUnconfirmedBand = (event: AppEvent) => !event.band_confirmed;
 export const isMissingDate = (event: AppEvent) => !event.start_time;

@@ -4,7 +4,8 @@ import { useAuth } from '../AuthContext';
 import { useNavigationContext } from '../context/NavigationContext';
 import { motion } from 'motion/react';
 import { Music, Mail, Lock, Loader2, UserPlus, CheckCircle2, Eye, EyeOff } from 'lucide-react';
-import brandLogo from '/bandvenue_transparent.png';
+
+const brandLogo = '/bandvenue_transparent.png';
 
 export default function AuthUI({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useAuth();
@@ -39,7 +40,7 @@ export default function AuthUI({ onSuccess }: { onSuccess?: () => void }) {
     console.log("Auth attempt started");
     
     // Fail cleanly if the configuration doesn't have valid ID/names instead of spinning infinitely
-    const isConfigured = !!import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL !== 'https://your-project-id.supabase.co';
+    const isConfigured = !!(import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_URL !== 'https://your-project-id.supabase.co';
     if (!isConfigured) {
       setError("No ID or name found in config. Please set a valid VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
       return;
@@ -77,6 +78,8 @@ export default function AuthUI({ onSuccess }: { onSuccess?: () => void }) {
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email: emailToAuth, password });
+        console.log('LOGIN DATA:', data);
+        console.log('LOGIN ERROR:', error);
         if (error) {
           console.error("Login Error Details:", error);
           if (error.message.includes('Invalid login credentials')) {

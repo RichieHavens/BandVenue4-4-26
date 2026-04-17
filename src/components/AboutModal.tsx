@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { X, Music } from 'lucide-react';
 
-import brandLogo from '/bandvenue_transparent.png';
+const brandLogo = '/bandvenue_transparent.png';
 
 interface AboutModalProps {
   isOpen: boolean;

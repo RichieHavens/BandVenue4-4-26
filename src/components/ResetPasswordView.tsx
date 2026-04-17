@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Loader2 } from 'lucide-react';
-import brandLogo from '/bandvenue_transparent.png';
+const brandLogo = '/bandvenue_transparent.png';
 
 export default function ResetPasswordView({ onComplete }: { onComplete: () => void }) {
   const [password, setPassword] = useState('');

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Lock } from 'lucide-react';
-import brandLogo from '/bandvenue_transparent.png';
+const brandLogo = '/bandvenue_transparent.png';
 
 export default function ComingSoon({ onUnlock }: { onUnlock: () => void }) {
   return (

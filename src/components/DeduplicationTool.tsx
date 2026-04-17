@@ -335,7 +335,7 @@ export default function DeduplicationTool() {
                         </div>
                         <div className="flex items-center gap-2 text-xs text-neutral-400">
                           <span>Created: {formatDate(event.created_at)} at {formatTime(event.created_at)}</span>
-                          {event.is_published && <span className="px-2 py-0.5 bg-green-500/10 text-green-500 rounded text-[10px] font-bold uppercase">Published</span>}
+                          {event.status === 'published' && <span className="px-2 py-0.5 bg-green-500/10 text-green-500 rounded text-[10px] font-bold uppercase">Published</span>}
                         </div>
                       </div>
                       <Button

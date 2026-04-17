@@ -14,7 +14,7 @@ interface EventCardProps {
 
 export function EventCard({ event, onCopy, onEdit }: EventCardProps) {
   // Logic to determine status, blocker, ownership
-  const isPublished = event.is_published;
+  const isPublished = event.status === 'published';
   const isVenueConfirmed = event.venue_confirmed;
   const isBandConfirmed = event.band_confirmed;
   const confirmationStatus = event.band_confirmation_status;
@@ -23,6 +23,7 @@ export function EventCard({ event, onCopy, onEdit }: EventCardProps) {
 
   let status: 'Draft' | 'Needs Band Confirmation' | 'Needs Promo Assets' | 'Almost Ready' | 'Ready' | 'Published' | 'Canceled' | 'Archived' = 'Draft';
   if (isPublished) status = 'Published';
+  else if (event.status === 'canceled') status = 'Canceled';
   else if (isVenueConfirmed && isBandConfirmed && hasDate && event.hero_url) status = 'Ready';
   else if (isVenueConfirmed && isBandConfirmed && hasDate) status = 'Almost Ready';
   else if (!isBandConfirmed && hasBand) status = 'Needs Band Confirmation';

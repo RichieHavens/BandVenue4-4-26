@@ -22,7 +22,7 @@ export function EventRow({ event, needsAttention, onCopy, onEdit }: EventRowProp
         {needsAttention && (
           <div className="absolute inset-0 bg-red-500 rounded-full animate-pulse" />
         )}
-        {!needsAttention && event.is_published && (
+        {!needsAttention && event.status === 'published' && (
           <div className="absolute inset-0 bg-green-500 rounded-full opacity-40" />
         )}
       </div>
@@ -39,7 +39,7 @@ export function EventRow({ event, needsAttention, onCopy, onEdit }: EventRowProp
       
       {/* Title & Genres */}
       <div className="flex-1 min-w-0 flex items-center gap-3">
-        <h3 className={`text-sm font-bold truncate ${!event.is_published ? 'text-neutral-500' : 'text-neutral-200'}`}>
+        <h3 className={`text-sm font-bold truncate ${event.status !== 'published' ? 'text-neutral-500' : 'text-neutral-200'}`}>
           {event.title}
         </h3>
         <div className="hidden lg:flex gap-1 shrink-0">
@@ -48,7 +48,7 @@ export function EventRow({ event, needsAttention, onCopy, onEdit }: EventRowProp
               {genre}
             </span>
           ))}
-          {!event.is_published && (
+          {event.status !== 'published' && (
             <StatusBadge status="Draft" className="text-[8px] px-1.5 py-0" />
           )}
         </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { supabase } from '../lib/supabase';
 import { motion } from 'motion/react';
-import brandLogo from '/bandvenue_transparent.png';
+const brandLogo = '/bandvenue_transparent.png';
 
 export default function DisclaimerOverlay() {
   const { user } = useAuth();

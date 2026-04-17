@@ -241,6 +241,8 @@ export interface Band {
   created_by_venue_id?: string;
 }
 
+export type EventStatus = 'draft' | 'published' | 'canceled' | 'postponed' | 'completed' | 'awaiting_band' | 'awaiting_venue';
+
 export interface AppEvent {
   id: string;
   venue_id: string;
@@ -263,7 +265,6 @@ export interface AppEvent {
   confirmation_sent_count?: number;
   band_confirmed_at?: string | null;
   is_public: boolean;
-  is_published: boolean;
   bag_policy?: string;
   hero_url?: string;
   venue_hero_url?: string;
@@ -272,7 +273,7 @@ export interface AppEvent {
   updated_at?: string;
   updated_by_id?: string;
   created_by?: string;
-  status?: 'pending' | 'confirmed' | 'rejected';
+  status?: EventStatus;
   venues?: Venue;
   acts?: Act[];
   event_genres?: string[];

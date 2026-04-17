@@ -133,10 +133,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check active sessions and subscribe to auth changes
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      console.log('SESSION:', session);
       setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id, session.user.email);
-      else setLoading(false);
+      if (session?.user) {
+        await fetchProfile(session.user.id, session.user.email);
+      }
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -173,6 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function fetchProfile(userId: string, userEmail?: string) {
+    console.log('FETCH PROFILE STARTED');
     setLoading(true);
     console.log('AuthContext: Fetching profile for', userId);
     try {
@@ -181,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       // 2. Also check the people table for this user (by user_id or email)
       let { data: personData, error: personError } = await supabase
@@ -334,8 +338,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     if (savedRole && availableRoles.includes(savedRole)) {
       setActiveRoleState(savedRole);
-    } else if (profile.default_role && availableRoles.includes(profile.default_role)) {
-      setActiveRoleState(profile.default_role);
+    } else if (profile.default_role) {
+      if (availableRoles.includes(profile.default_role)) {
+        setActiveRoleState(profile.default_role);
+      } else {
+        setActiveRoleState('registered_guest');
+      }
     } else if (availableRoles.length > 0) {
       const sortedRoles = [...availableRoles].sort((a, b) => {
         return rolePriority.indexOf(b) - rolePriority.indexOf(a);

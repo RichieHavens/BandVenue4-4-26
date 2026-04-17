@@ -179,7 +179,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
         band_confirmed: event?.band_confirmed,
         has_multiple_acts: event?.has_multiple_acts,
         is_public: event?.is_public,
-        is_published: true,
+        status: event?.status || 'published',
         hero_url: event?.hero_url,
         bag_policy: event?.bag_policy,
         updated_at: new Date().toISOString(),
@@ -371,14 +371,14 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                 </div>
                 <button
                   type="button"
-                  onClick={() => setEvent({ ...event, is_published: !event.is_published })}
+                  onClick={() => setEvent({ ...event, status: event?.status === 'published' ? 'draft' : 'published' })}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                    event.is_published ? 'bg-green-600' : 'bg-neutral-700'
+                    event?.status === 'published' ? 'bg-green-600' : 'bg-neutral-700'
                   }`}
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      event.is_published ? 'translate-x-6' : 'translate-x-1'
+                      event?.status === 'published' ? 'translate-x-6' : 'translate-x-1'
                     }`}
                   />
                 </button>
@@ -537,8 +537,30 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
           <SectionHeader id="status" title="Status & Visibility" icon={Settings} />
           {expandedSection === 'status' && (
             <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-2">
+              <label className="flex items-center justify-between p-3 bg-neutral-950 rounded-xl border border-neutral-800 cursor-pointer hover:border-neutral-700 transition-all">
+                <div>
+                  <div className="font-bold text-white text-sm">Published</div>
+                  <div className="text-xs text-neutral-500">Live on the platform</div>
+                </div>
+                <div className={cn(
+                  "w-12 h-6 rounded-full transition-colors relative",
+                  event?.status === 'published' ? "bg-blue-600" : "bg-neutral-800"
+                )}>
+                  <div className={cn(
+                    "absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform",
+                    event?.status === 'published' ? "translate-x-6" : "translate-x-0"
+                  )} />
+                </div>
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  disabled={isPast && !isSuperAdmin}
+                  checked={event?.status === 'published'}
+                  onChange={(e) => setEvent({ ...event, status: e.target.checked ? 'published' : 'draft' })}
+                />
+              </label>
+
               {[
-                { id: 'is_published', label: 'Published', desc: 'Live on the platform' },
                 { id: 'is_public', label: 'Public Event', desc: 'Visible to everyone' },
                 { id: 'has_multiple_acts', label: 'Multiple Acts', desc: 'More than one performer' },
                 { id: 'venue_confirmed', label: 'Venue Confirmed', desc: 'Venue has approved' },

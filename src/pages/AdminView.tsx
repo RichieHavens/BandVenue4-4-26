@@ -436,7 +436,7 @@ export function AdminView() {
       ...rest,
       start_time: undefined,
       end_time: undefined,
-      is_published: false,
+      status: 'draft',
       venue_confirmed: false,
       band_confirmed: false
     } as any;
@@ -575,7 +575,7 @@ export function AdminView() {
               venue_confirmed: true,
               band_confirmed: true,
               is_public: true,
-              is_published: true,
+              status: 'published',
               created_by_id: personId,
               updated_at: new Date().toISOString(),
               updated_by_id: personId

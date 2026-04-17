@@ -60,7 +60,7 @@ export function EventsView() {
       const { data } = await supabase
         .from('events')
         .select('*')
-        .eq('is_published', true);
+        .eq('status', 'published');
       
       if (data) {
         // Flatten acts to get start_time if needed, and flatten genres

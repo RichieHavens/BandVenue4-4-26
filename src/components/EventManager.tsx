@@ -94,7 +94,7 @@ export default function EventManager({ bandId, venueId, initialAttentionFilter =
       if (attentionFilter === 'open_slots' && !isOpenSlot(event)) return false;
       if (attentionFilter === 'unconfirmed_acts' && !isUnconfirmedAct(event)) return false;
       if (attentionFilter === 'confirmed_events' && !isConfirmedEvent(event)) return false;
-      if (attentionFilter === 'unpublished' && event.is_published) return false;
+      if (attentionFilter === 'unpublished' && event.status === 'published') return false;
       if (attentionFilter === 'unconfirmed_venue' && event.venue_confirmed) return false;
       if (attentionFilter === 'missing_date' && event.start_time) return false;
     }
@@ -128,7 +128,7 @@ export default function EventManager({ bandId, venueId, initialAttentionFilter =
       ...rest,
       start_time: undefined,
       end_time: undefined,
-      is_published: false,
+      status: 'draft',
       venue_confirmed: false,
       band_confirmed: false
     } as any;

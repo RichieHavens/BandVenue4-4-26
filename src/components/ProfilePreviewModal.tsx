@@ -129,7 +129,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
       let query = supabase
         .from('events')
         .select('*')
-        .eq('is_published', true);
+        .eq('status', 'published');
 
       if (type === 'venue') {
         query = query.eq('venue_id', data.id);

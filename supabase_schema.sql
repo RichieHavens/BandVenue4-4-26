@@ -283,7 +283,7 @@ CREATE TABLE events (
   venue_confirmed BOOLEAN DEFAULT FALSE,
   band_confirmed BOOLEAN DEFAULT FALSE,
   is_public BOOLEAN DEFAULT FALSE,
-  is_published BOOLEAN DEFAULT FALSE,
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'canceled', 'postponed', 'completed', 'awaiting_band', 'awaiting_venue')),
   promoter_confirmed BOOLEAN DEFAULT FALSE,
   hero_url TEXT,
   bag_policy TEXT,

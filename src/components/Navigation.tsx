@@ -14,8 +14,8 @@ import {
   SheetTrigger,
 } from "./ui/sheet";
 
-// Import the logo directly so Vite handles it
-import navLogo from '/bandvenue_nav_logo_transparent.png';
+// Logo from public folder
+const navLogo = '/bandvenue_nav_logo_transparent.png';
 
 export default function Navigation() {
   const { user, profile, activeRole, setActiveRole, signOut, availableRoles } = useAuth();

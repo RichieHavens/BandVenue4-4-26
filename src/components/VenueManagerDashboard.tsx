@@ -14,7 +14,7 @@ import { isOpenSlot, isActionRequired, isUnconfirmedAct, isConfirmedEvent } from
 
 export function getEventReadiness(event: AppEvent): { status: string, colorClass: string, bgClass: string } {
   if (event.is_canceled) return { status: 'Canceled', colorClass: 'text-red-500', bgClass: 'bg-red-500/10 border-red-500/20' };
-  if (event.is_published) return { status: 'Published', colorClass: 'text-blue-500', bgClass: 'bg-blue-500/10 border-blue-500/20' };
+  if (event.status === 'published') return { status: 'Published', colorClass: 'text-blue-500', bgClass: 'bg-blue-500/10 border-blue-500/20' };
 
   const hasBand = event.acts && event.acts.length > 0 && event.acts.some((a: any) => a.band_id);
   
@@ -111,7 +111,7 @@ export default function VenueManagerDashboard({ venues, onNavigate }: VenueManag
     if (hasBand && !e.band_confirmed) missingCount++;
     if (!e.venue_confirmed) missingCount++;
     if (!e.hero_url) missingCount++;
-    return missingCount === 1 && !e.is_published;
+    return missingCount === 1 && e.status !== 'published';
   });
 
   const actionRequiredYou = upcomingEvents.filter(isActionRequired);
@@ -124,7 +124,7 @@ export default function VenueManagerDashboard({ venues, onNavigate }: VenueManag
     if (!e.venue_confirmed) missingCount++;
     if (!e.hero_url) missingCount++;
     
-    if (missingCount === 1 && !e.is_published) return false;
+    if (missingCount === 1 && e.status !== 'published') return false;
 
     return hasBand && !e.band_confirmed;
   });
@@ -164,7 +164,7 @@ export default function VenueManagerDashboard({ venues, onNavigate }: VenueManag
     if (!e.venue_confirmed) missingCount++;
     if (!e.hero_url) missingCount++;
 
-    if (e.is_published) status = 'Published';
+    if (e.status === 'published') status = 'Published';
     else if (missingCount === 0) status = 'Ready';
     else if (missingCount === 1) status = 'Almost Ready';
     else if (!e.band_confirmed && hasBand) status = 'Needs Band Confirmation';

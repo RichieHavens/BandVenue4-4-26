@@ -27,7 +27,7 @@ export default function EventEditor({ event, isCopying, intent, onClose, onSave 
     }
   };
 
-  const isReady = event?.is_published || (event?.venue_confirmed && event?.band_confirmed && event?.start_time && event?.hero_url);
+  const isReady = event?.status === 'published' || (event?.venue_confirmed && event?.band_confirmed && event?.start_time && event?.hero_url);
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
